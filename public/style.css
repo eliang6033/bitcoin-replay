@@ -641,6 +641,17 @@ dialog::backdrop {
   flex-wrap: wrap;
   gap: 8px;
 }
+.invite-actions a {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: var(--ink);
+  color: white;
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+}
 #dialogText input {
   display: block;
   width: 100%;

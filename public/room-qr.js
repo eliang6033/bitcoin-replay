@@ -33,14 +33,13 @@
     return canvas;
   }
 
-  function download(canvas) {
+  function downloadLink(canvas) {
     const file = document.createElement("a");
     file.download = "bitcoin-replay-room.png";
     file.href = canvas.toDataURL("image/png");
-    document.body.append(file);
-    file.click();
-    file.remove();
+    file.textContent = "Download QR code";
+    return file;
   }
 
-  globalThis.BitcoinRoomQR = { create, download };
+  globalThis.BitcoinRoomQR = { create, downloadLink };
 })();

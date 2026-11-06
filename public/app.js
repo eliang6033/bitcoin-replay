@@ -418,12 +418,12 @@ function modal(title, paragraphs, code) {
     let download;
     if (!localPreview) {
       const qr = BitcoinRoomQR.create(code);
-      qr.className = "room-qr";
-      box.append(qr);
-      download = document.createElement("button");
-      download.className = "primary";
-      download.textContent = "Download QR code";
-      download.onclick = () => BitcoinRoomQR.download(qr);
+      download = BitcoinRoomQR.downloadLink(qr);
+      const image = document.createElement("img");
+      image.className = "room-qr";
+      image.alt = "Scan to join this Bitcoin Replay room";
+      image.src = download.href;
+      box.append(image);
     }
     const input = document.createElement("input");
     input.value = code;

@@ -38,8 +38,8 @@ test("student links produce square, downloadable room codes with clear borders",
       x >= 4 * w && y >= 4 * h && x + w <= canvas.width - 4 * w && y + h <= canvas.height - 4 * h));
   }
   assert.throws(() => api.create("https://example.org/?host=123"), /student/i);
-  api.download(canvas);
+  assert.equal(api.downloadLink(canvas), link);
   assert.equal(link.download, "bitcoin-replay-room.png");
   assert.equal(link.href, canvas.toDataURL());
-  assert.ok(link.clicked);
+  assert.equal(link.textContent, "Download QR code");
 });
