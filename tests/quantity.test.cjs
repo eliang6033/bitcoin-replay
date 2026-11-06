@@ -22,7 +22,7 @@ test("total quotes price the entire order and track both teams' trades", () => {
   assert.ok(seen.quotes.buyUp > opening.quotes.buyUp);
   assert.ok(seen.quotes.buyDown < opening.quotes.buyDown);
   assert.equal(seen.me.cash, 100);
-  assert.throws(() => request("two", "trade", order), /Another team traded/);
+  assert.throws(() => request("two", "trade", order), /The price changed/);
   assert.equal(request("two", "state").me.up, 0);
   const sold = request("one", "trade", { side: "up", action: "sell", quantity: 4, quoteLimit: bought.quoteTotals.sellUp[3] });
   assert.equal(sold.me.up, 6);
@@ -42,7 +42,7 @@ room.trade(a, "down", "buy", 7, quote_limit=opening["buyDown"][6])
 try:
     room.trade(b, "down", "buy", 7, quote_limit=opening["buyDown"][6])
 except GameError as err:
-    assert "Another team" in str(err)
+    assert "The price changed" in str(err)
 else:
     raise AssertionError("Accepted an obsolete quote")
 print(json.dumps(room.state(b, False, "/")["quoteTotals"]))
@@ -92,7 +92,7 @@ test("cash-out closes both outcomes at the joint book price, or rejects the enti
   assert.ok(Math.abs(close.total - (40 - room.quote("up", -3))) < 0.0001);
   const sale = { side: "both", action: "sellAll", quantity: 11, quoteLimit: close.total };
   assert.throws(() => call("trade", { ...sale, quantity: 10 }), /holdings changed/);
-  assert.throws(() => call("trade", { ...sale, quoteLimit: close.total + 1 }), /Another team/);
+  assert.throws(() => call("trade", { ...sale, quoteLimit: close.total + 1 }), /The price changed/);
   assert.deepEqual(call("state").me, before.me);
   assert.deepEqual(call("state").quotes, before.quotes);
   const after = call("trade", sale);

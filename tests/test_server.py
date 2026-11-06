@@ -69,6 +69,26 @@ class ReplayTest(unittest.TestCase):
         self.assertEqual("lobby", self.state()["phase"])
         self.assertIsNone(self.state()["me"])
 
+    def test_rankings_include_inactive_and_late_players_at_settlement(self):
+        self.game.prices[-1]["price"] = self.game.prices[0]["price"]
+        winner = self.game.join("Ari", "")
+        loser = self.game.join("Casey", "")
+        self.game.host_action("start")
+        self.game.trade(winner, "down", "buy", 2)
+        self.game.trade(loser, "up", "buy", 1)
+        self.game.trade(winner, "down", "sell", 1)
+        self.now += 299
+        self.game.join("Lee", "")
+        self.now += 1
+        final = self.game.state("", False, "/")
+        self.assertEqual(final["reveal"]["winner"], "down")
+        self.assertEqual((final["players"], final["npcCount"]), (4, 20))
+        self.assertEqual([row["name"] for row in final["rankings"]], ["Ari", "Team Blue", "Lee", "Casey"])
+        balances = [row["points"] for row in final["rankings"]]
+        self.assertAlmostEqual(balances[0], self.game.players[winner]["cash"] + 10, places=3)
+        self.assertEqual(balances[1:3], [100, 100])
+        self.assertAlmostEqual(balances[3], self.game.players[loser]["cash"], places=3)
+
     def test_shared_market_multiple_teams_and_concurrent_orders(self):
         red = self.game.join("Team Red", "")
         self.assertEqual(red, self.game.join("Restore", red))

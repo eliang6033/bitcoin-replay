@@ -14,6 +14,7 @@ const timer = (t) =>
   String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 let state,
   selectedSide = "up",
+  orderMode = "buy",
   percent = 25,
   busy = false,
   sequence = 0,
@@ -103,7 +104,8 @@ function makeFillRow(fill, me) {
   row.dataset.action = fill.action;
   const who = document.createElement("span");
   who.className = "fill-who";
-  who.textContent = fill.actor === "team" ? (fill.name === me?.name ? "You · " : "Team · ") + fill.name : fill.name;
+  who.textContent = fill.actor === "team" && fill.name === me?.name ? "You · " + fill.name :
+    fill.actor === "team" && /^NPC \d+$/i.test(fill.name) ? "Player · " + fill.name : fill.name;
   who.title = who.textContent;
   const amount = document.createElement("b");
   amount.className = "fill-amount";
@@ -182,7 +184,7 @@ $("toggleTradeFeed").onclick = () => {
   if (!feedPaused && state) drawTradeFeed(state);
 };
 function roomCount(s) {
-  const students = num.format(s.players) + (s.players === 1 ? " student team" : " student teams");
+  const students = num.format(s.players) + (s.players === 1 ? " player" : " players");
   return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
 }
 const quantityControl = $("quantity");
@@ -197,16 +199,16 @@ function updateOutcomeRows(s) {
     const chance = side === "up" ? up : 100 - up;
     const percentage = chance < 1 ? "<1%" : chance > 99 ? ">99%" :
       (side === "up" ? roundedUp : 100 - roundedUp) + "%";
-    const teams = s.support?.[side];
+    const holders = s.support?.[side];
     label("odds" + name, percentage);
     $("bar" + name).style.width = chance + "%";
-    label("holders" + name, Number.isInteger(teams) ? teams + (teams === 1 ? " team" : " teams") : "Unavailable");
+    label("holders" + name, Number.isInteger(holders) ? holders + (holders === 1 ? " player" : " players") : "Unavailable");
     const selected = side === selectedSide;
     label("select" + name, selected ? "Selected ✓" : "Pick " + name);
     const pick = $("pick" + name);
     pick.setAttribute("aria-pressed", selected);
     pick.setAttribute("aria-label", name + ", " + percentage + " market chance" +
-      (Number.isInteger(teams) ? ", " + teams + (teams === 1 ? " class team holding" : " class teams holding") : ""));
+      (Number.isInteger(holders) ? ", " + holders + (holders === 1 ? " player holding" : " players holding") : ""));
     pick.disabled = busy;
   }
 }
@@ -242,21 +244,24 @@ function setOrders() {
   const owned = s.me[selectedSide];
   label("owned", `You hold ${owned} “${name}” ${shareLabel(owned)}`);
   for (const action of ["buy", "sell"]) {
-    const {quantity, total} = orderPreview(action);
-    const buying = action === "buy";
-    const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
-    const verb = buying ? "Buy" : "Sell";
-    label(action + "Title", verb + " " + name);
-    const cost = (buying ? "Pay ≈ " : "Get ≈ ") + practice(total);
-    const unavailable = buying && s.bulk && percent < 100 && s.bulk[selectedSide].buy[100].quantity > 0
-      ? "Try a larger size" : buying ? "Not enough cash" : owned ? "Choose fewer shares" : "No shares yet";
-    label(action + "Price", canFill ? cost : unavailable);
-    $(action).setAttribute("aria-label", canFill
-      ? `${verb}, ${quantity} “${name}” ${shareLabel(quantity)}. ${cost}.`
-      : verb + ". " + unavailable);
-    $(action).title = canFill ? `${quantity} ${shareLabel(quantity)} · ${buying ? "Maximum cost" : "Minimum return"} ${practice(executionLimit(action, total, quantity))}` : "";
-    $(action).disabled = busy || s.phase !== "trading" || !canFill;
+    $(action).setAttribute("aria-pressed", orderMode === action);
+    $(action).disabled = busy;
   }
+  const buying = orderMode === "buy";
+  const {quantity, total} = orderPreview(orderMode);
+  const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
+  label("sizePrompt", buying ? "How much of your cash?" : `How many of your ${name} shares?`);
+  label("orderOutcome", name + " shares");
+  const verb = buying ? "Buy" : "Sell";
+  label("orderActionLabel", canFill ? `${verb} ${quantity} ${name} ${shareLabel(quantity)}` : verb + " " + name + " shares");
+  let amount;
+  if (canFill) amount = (buying ? "Pay ≈ " : "Receive ≈ ") + practice(total);
+  else if (!buying) amount = owned ? "Choose fewer shares" : `No ${name} shares to sell`;
+  else amount = s.bulk?.[selectedSide].buy[100].quantity > 0 && percent < 100 ? "Try a larger size" : "Not enough cash";
+  label("orderAmount", amount);
+  const place = $("placeOrder");
+  place.disabled = busy || s.phase !== "trading" || !canFill;
+  place.title = canFill ? (buying ? "Maximum cost " : "Minimum return ") + practice(executionLimit(orderMode, total, quantity)) : "";
   const all = s.bulk?.cashOut;
   show("cashOutAll", Boolean(all?.quantity) && s.phase === "trading");
   if (all?.quantity) {
@@ -266,6 +271,61 @@ function setOrders() {
     $("cashOutAll").title = "Sell all shares in both predictions for about " + practice(all.total);
   }
 }
+let finalRankRound;
+function drawStandings(s) {
+  const settled = Boolean(s.reveal);
+  show("ranks", !settled);
+  show("leaderboard", settled);
+  const count = s.players + (s.players === 1 ? " player" : " players");
+  if (!settled) {
+    finalRankRound = null;
+    label("players", " · " + count);
+    if (!$("ranks").open) return;
+    $("ranking").replaceChildren(...s.rankings.map(player => {
+      const li = document.createElement("li"), value = document.createElement("b");
+      value.textContent = practice(player.points);
+      li.append(document.createTextNode(player.name), value);
+      return li;
+    }));
+    return;
+  }
+  // Show the standings immediately after settlement, and keep the host's
+  // network replay and discussion in view during the following stages.
+  const before = s.phase === "settled" ? document.querySelector(".layout") : $("ranks");
+  if ($("leaderboard").nextElementSibling !== before) before.before($("leaderboard"));
+  if (finalRankRound === s.roundId) return;
+  finalRankRound = s.roundId;
+  const players = s.rankings.map(player => ({
+    name: player.name,
+    profit: Math.round(player.points * 1000) - 100000,
+  })).sort((a, b) => b.profit - a.profit);
+  label("finalPlayerCount", count);
+  show("rankingEmpty", players.length === 0);
+  let priorProfit, place;
+  const rows = players.map((player, i) => {
+    if (player.profit !== priorProfit) place = i + 1;
+    priorProfit = player.profit;
+    const row = document.createElement("li");
+    row.dataset.rank = place;
+    const rank = document.createElement("span");
+    rank.className = "final-rank";
+    rank.textContent = "#" + place;
+    if (place <= 3) {
+      const cup = shape("svg", {viewBox: "0 0 24 24", class: "rank-trophy", "aria-hidden": "true", fill: "currentColor"});
+      cup.append(shape("path", {d: "M6.5 3h11v2H21v2c0 3.4-1.7 5.1-4.7 5.5a6.3 6.3 0 0 1-3.2 2.8V18l3 1v2H8v-2l3-1v-2.7a6.3 6.3 0 0 1-3.3-2.8C4.7 12.1 3 10.4 3 7V5h3.5V3Zm0 4H5c0 1.8.7 2.9 2 3.4C6.7 9.3 6.5 8.2 6.5 7Zm11 0c0 1.2-.2 2.3-.5 3.4 1.3-.5 2-1.6 2-3.4h-1.5Z"}));
+      rank.prepend(cup);
+    }
+    const name = document.createElement("span");
+    name.className = "final-name";
+    name.textContent = player.name;
+    const amount = document.createElement("b");
+    amount.className = "final-profit" + (player.profit < 0 ? " loss" : player.profit > 0 ? " gain" : "");
+    amount.textContent = (player.profit > 0 ? "+" : player.profit < 0 ? "−" : "") + dollars.format(Math.abs(player.profit));
+    row.append(rank, name, amount);
+    return row;
+  });
+  $("finalRanking").replaceChildren(...rows);
+}
 function paint(s) {
   const old = state;
   state = s;
@@ -274,6 +334,7 @@ function paint(s) {
     inGame = s.phase === "trading";
   if (old && old.roundId !== s.roundId) {
     selectedSide = "up";
+    orderMode = "buy";
     percent = 25;
     if (quantityControl) quantityControl.value = "1";
     label("notice", "");
@@ -417,15 +478,7 @@ function paint(s) {
   }
   if (s.phase === "discussion" && old?.phase === "network")
     $("discussion").scrollIntoView({ block: "start" });
-  label("players", " · " + s.players + " " + (s.players === 1 ? "team" : "teams"));
-  const rows = s.rankings.map((r) => {
-    const li = document.createElement("li"),
-      b = document.createElement("b");
-    b.textContent = practice(r.points);
-    li.append(document.createTextNode(r.name), b);
-    return li;
-  });
-  $("ranking").replaceChildren(...rows);
+  drawStandings(s);
 }
 async function call(path, body) {
   const id = ++sequence;
@@ -502,7 +555,7 @@ async function refresh() {
 }
 $("joinForm").onsubmit = (e) => {
   e.preventDefault();
-  submit("join", { name: $("team").value.trim() });
+  submit("join", { name: $("playerName").value.trim() });
 };
 for (const side of ["up", "down"]) {
   $(side === "up" ? "pickUp" : "pickDown").onclick = () => {
@@ -521,10 +574,16 @@ for (const button of sizeButtons) {
 }
 for (const action of ["buy", "sell"]) {
   $(action).onclick = () => {
-    const {quantity, total} = orderPreview(action);
-    submit("trade", {side: selectedSide, action, quantity, quoteLimit: executionLimit(action, total, quantity)});
+    if (busy) return;
+    orderMode = action;
+    setOrders();
   };
 }
+$("placeOrder").onclick = () => {
+  if (busy || $("placeOrder").disabled) return;
+  const {quantity, total} = orderPreview(orderMode);
+  submit("trade", {side: selectedSide, action: orderMode, quantity, quoteLimit: executionLimit(orderMode, total, quantity)});
+};
 $("cashOutAll").onclick = () => {
   const {quantity, total} = state.bulk.cashOut;
   submit("trade", {side: "both", action: "sellAll", quantity, quoteLimit: executionLimit("sell", total, quantity)});
@@ -533,12 +592,12 @@ new ResizeObserver(() => {
   if (state) draw(state, ["network", "discussion"].includes(state.phase));
 }).observe($("plot"));
 $("restart").onclick = () => {
-  if (confirm("End this practice round and clear team balances?"))
+  if (confirm("End this practice round and clear player balances?"))
     submit("host", { action: "reset" });
 };
 $("hostAction").onclick = () => {
   const cmd = hostActions[state.phase]?.[1];
-  if (cmd && (cmd !== "reset" || confirm("Clear all team balances and open a fresh round?")))
+  if (cmd && (cmd !== "reset" || confirm("Clear all player balances and open a fresh round?")))
     submit("host", { action: cmd });
 };
 function scannable(url) {
@@ -595,9 +654,9 @@ function modal(title, paragraphs, code) {
 }
 $("guide").onclick = () =>
   modal("How to play", [
-    "Join a team to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
-    "Pick Up or Down. Market chance follows the room’s share prices. Team counts show how many student teams own that outcome. A team holding both counts on both sides.",
-    "Buy with part of your practice cash. To exit early, pick the side you own and press Sell. At the finish each correct share pays $10,000, and the other side pays $0. A tie goes to Down.",
+    "Enter your name or nickname to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
+    "Pick Up or Down. Market chance follows the room’s share prices. Player counts show how many classmates own that outcome. If you hold both, you count on both sides.",
+    "Choose Buy or Sell, choose a size, then press the order button to trade. Buying uses your available practice cash. Selling returns cash for shares you own. At the finish each correct share pays $10,000 and the other side pays $0. A tie goes to Down.",
   ]);
 $("invite").onclick = () =>
   modal(
@@ -607,7 +666,7 @@ $("invite").onclick = () =>
         ? "Everyone scans the same code to join. Keep this host tab open during the game."
         : state.joinUrl.includes("127.0.0.1")
         ? "This preview is open on this computer. To invite phones, restart the classroom server in LAN mode as described in the project guide."
-        : "Students on the same network can open this address on a phone or laptop and choose a team name.",
+        : "Students on the same network can open this address on a phone or laptop and enter their name or nickname.",
     ],
     state.joinUrl,
   );
@@ -625,7 +684,7 @@ function startOnline() {
   label("priceDelta", "Waiting to start");
   label("ticketHeading", invited ? "Join this room" : "Play with friends");
   label("launchText", invited
-    ? "Connecting to the host. You’ll choose a team name when you arrive."
+    ? "Connecting to the host. Enter your name or nickname when you arrive."
     : "Create one room and invite everyone with the same link. Playing alone? You can join your own round.");
   const button = $("launchButton");
   const buttonName = invited ? "Connect to room" : isReturningHost ? "Reopen your room" : "Create a room";
@@ -642,7 +701,6 @@ function startOnline() {
       session = connected;
       await call("state");
       show("launcher", false);
-      show("ranks", true);
       refresh();
     } catch (error) {
       if (connected) BitcoinClassroom.dispose();

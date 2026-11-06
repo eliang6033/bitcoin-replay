@@ -184,12 +184,12 @@ class Room:
         if self.phase not in ("lobby", "trading"):
             raise GameError("This round has closed.", 409)
         if not isinstance(name, str):
-            raise GameError("Enter a team name.")
+            raise GameError("Enter your nickname.")
         name = " ".join(name.split())
         if not 1 <= len(name) <= 24 or not name.isprintable():
-            raise GameError("Use a team name between 1 and 24 characters.")
+            raise GameError("Use a nickname between 1 and 24 characters.")
         if any(p["name"].casefold() == name.casefold() for p in self.players.values()):
-            raise GameError("That team name is taken.", 409)
+            raise GameError("That nickname is taken.", 409)
         if len(self.players) >= 300:
             raise GameError("The room is full.", 409)
         key = secrets.token_urlsafe(20)
@@ -279,7 +279,7 @@ class Room:
                 raise GameError("Invalid total quote.")
             total = money(abs(cost))
             if (action == "buy" and total > quote_limit) or (action != "buy" and total < quote_limit):
-                raise GameError("Another team traded first. Check the new total and try again.", 409)
+                raise GameError("The price changed. Check the new total and try again.", 409)
         if cost > player["cash"] + 1e-9:
             raise GameError("You need more practice cash for this trade.", 409)
         if all_positions:

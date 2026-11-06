@@ -34,7 +34,7 @@
         <div class="host-info">
           <div id="scanInstructions" hidden>
             <h2>Scan to join the room</h2>
-            <p>Scan the code and enter a team name. The host starts the replay when everyone is ready.</p>
+            <p>Scan the code and enter your name or nickname. The host starts the replay when everyone is ready.</p>
           </div>
           <strong id="hostLabel">Host controls</strong>
           <span id="hostHint" role="status"></span>
@@ -46,7 +46,7 @@
       </section>
       <section class="market-board" id="prediction" aria-label="Choose a market outcome" hidden>
         <div class="board-head">
-          <span>Outcome</span><span>Market chance</span><span>Class teams holding</span><span></span>
+          <span>Outcome</span><span>Market chance</span><span>Players holding</span><span></span>
         </div>
         <button type="button" class="market-row" id="pickUp" aria-pressed="true">
           <span class="outcome-name"><i aria-hidden="true">↗</i><span><b>Up</b><small>Above the starting price</small></span></span>
@@ -60,6 +60,15 @@
           <span class="holder-count" id="holdersDown">—</span>
           <span class="pick-cta" id="selectDown">Pick Down</span>
         </button>
+      </section>
+      <section id="result" class="panel result" hidden>
+        <div>
+          <span class="kicker">Closing bell</span>
+          <h2 id="winner"></h2>
+          <p id="dates"></p>
+          <a id="priceSource" target="_blank" rel="noreferrer">See the Coinbase price record ↗</a>
+        </div>
+        <div class="score"><span>Your final balance</span><b id="score">—</b></div>
       </section>
       <section class="layout">
         <article class="chartcard">
@@ -114,16 +123,16 @@
             <button class="wide primary" id="launchButton">Create a room</button>
           </div>
           <form id="joinForm">
-            <label for="team">Choose a team name</label
+            <label for="playerName">Your name or nickname</label
             ><input
-              id="team"
-              name="team"
+              id="playerName"
+              name="playerName"
               autocomplete="off"
               maxlength="24"
-              placeholder="e.g. Table 3"
+              placeholder="e.g. Alex"
               required
             />
-            <p>Your team starts with <b>$100,000 in practice cash</b>.</p>
+            <p>You start with <b>$100,000 in practice cash</b>.</p>
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
           <div class="wallet" id="walletPanel" hidden>
@@ -132,8 +141,15 @@
           </div>
           <div id="mobileTrades"></div>
           <div id="tradePanel" hidden>
+            <div class="order-heading">
+              <div class="order-modes" role="group" aria-label="Order type">
+                <button type="button" id="buy" aria-pressed="true">Buy</button>
+                <button type="button" id="sell" aria-pressed="false">Sell</button>
+              </div>
+              <span id="orderOutcome">Up shares</span>
+            </div>
             <fieldset class="sizing" id="sizing">
-              <legend>How much of your cash or shares?</legend>
+              <legend id="sizePrompt">How much of your cash?</legend>
               <div class="size-row">
                 <button type="button" data-size="10" aria-pressed="false">10%</button>
                 <button type="button" data-size="25" aria-pressed="true">25%</button>
@@ -148,10 +164,10 @@
                 <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
               </select>
             </div>
-            <div class="trade-actions">
-              <button id="buy"><b id="buyTitle">Buy Up</b><small id="buyPrice"></small></button>
-              <button id="sell"><b id="sellTitle">Sell Up</b><small id="sellPrice"></small></button>
-            </div>
+            <button type="button" id="placeOrder" class="order-submit" disabled>
+              <strong id="orderActionLabel">Buy Up shares</strong>
+              <span id="orderAmount"></span>
+            </button>
             <div class="position-line">
               <span id="owned"></span>
               <button type="button" class="cashout-all" id="cashOutAll" hidden>Cash out everything</button>
@@ -161,23 +177,14 @@
           <p id="notice" role="status"></p>
           <details class="marketRules">
             <summary>How the money works</summary>
-            <p>Market chance comes from the room’s prices. Team counts include classmates who currently own shares on that side. A team can hold both sides. NPCs trade but do not count as class teams.</p>
+            <p>Market chance comes from the room’s prices. Player counts show how many classmates hold each side. If you hold both, you count once on each side. NPCs trade separately.</p>
             <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Each winning share pays $10,000 in practice cash. A losing share pays $0. Sell shares you own before the finish to take the cash shown.</p>
-            <p id="sizeInfo">Choose a percentage of your available cash to place a bet, or the same percentage of your shares to cash out. Orders use whole shares. “Cash out everything” sells both predictions in one step.</p>
+            <p id="sizeInfo">Choose Up or Down, select Buy or Sell, then choose a percentage and press the order button. The percentage applies to your available cash when buying and the shares you hold when selling. “Cash out everything” sells both sides in one step.</p>
             <p>You can spend only the practice cash in your account. The most you can lose on a bet is what you paid.</p>
             <p id="limitInfo" hidden>Prices move as the class trades. A bet can cost up to $150 more per share than the estimate, within your spending limit. Cashing out can return up to $150 less per share. A larger change asks you to check the new price.</p>
             <p id="traderCount"></p>
           </details>
         </aside>
-      </section>
-      <section id="result" class="panel result" hidden>
-        <div>
-          <span class="kicker">Closing bell</span>
-          <h2 id="winner"></h2>
-          <p id="dates"></p>
-          <a id="priceSource" target="_blank" rel="noreferrer">See the Coinbase price record ↗</a>
-        </div>
-        <div class="score"><span>Your final balance</span><b id="score">—</b></div>
       </section>
       <section id="network" class="panel network" hidden>
         <span class="kicker">Network replay</span>
@@ -249,6 +256,16 @@
           rel="noreferrer"
           >Hear the residents’ account ↗</a
         >
+      </section>
+      <section class="panel final-board" id="leaderboard" aria-labelledby="finalRankHeading" hidden>
+        <div class="final-rank-heading">
+          <h2 id="finalRankHeading">Final leaderboard</h2>
+          <span id="finalPlayerCount"></span>
+        </div>
+        <p>Profit is your final balance minus the $100,000 you started with. Equal profits share a place when rounded to the nearest dollar.</p>
+        <div class="final-columns" aria-hidden="true"><span>Place</span><span>Player</span><span>Profit / loss</span></div>
+        <ol id="finalRanking" aria-label="Final player rankings by profit"></ol>
+        <p id="rankingEmpty" hidden>No players joined this round.</p>
       </section>
       <details class="panel standings" id="ranks">
         <summary>Class standings <span id="players"></span></summary>

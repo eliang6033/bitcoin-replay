@@ -36,9 +36,11 @@
 .exchange .chartfoot { border-color: #303945; color: #adb6c1; }
 .exchange .size-row button { color: #b9c3d0; }
 .exchange .size-row button[aria-pressed="true"] { color: white; background: #354457; border-color: #95a6bb; }
-.exchange #buy { background: #417dc7; border-color: #4e8ad4; color: white; }
-.exchange #sell { background: #253649; border-color: #53667c; color: #e7f1ff; }
-.exchange #sell:disabled { background: #222831; border-color: #38414e; color: #a9b1bd; }
+.exchange .order-modes { background: #0d1219; }
+.exchange .order-modes button { background: transparent; color: #aab5c4; }
+.exchange .order-modes [aria-pressed="true"] { background: #354457; color: #fff; }
+.exchange .order-submit { background: #a3cdff; border-color: #a3cdff; color: #0e2138; }
+.exchange .order-submit:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
 .exchange .cashout-all { color: #a9ceff; background: transparent; }
 .exchange #notice { color: #a9ceff; }
 .exchange .status { background: #422f1d; color: #ffe2ab; }

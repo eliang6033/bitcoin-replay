@@ -288,14 +288,14 @@
       if (!["lobby", "trading"].includes(this.phase)) error("This round has closed.", 409);
       if (typeof key !== "string" || !key || key.length > 256)
         error("Missing player identity.", 403);
-      if (typeof name !== "string") error("Enter a team name.");
+      if (typeof name !== "string") error("Enter your nickname.");
       name = name.trim().replace(/\s+/gu, " ");
       if (!name || [...name].length > 24 || /[\p{C}]/u.test(name)) {
-        error("Use a team name between 1 and 24 characters.");
+        error("Use a nickname between 1 and 24 characters.");
       }
       for (const player of this.players.values()) {
         if (player.name.toLowerCase() === name.toLowerCase())
-          error("That team name is taken.", 409);
+          error("That nickname is taken.", 409);
       }
       if (this.players.size >= 300) error("The room is full.", 409);
       this.players.set(key, { name, cash: 100, up: 0, down: 0 });
@@ -335,7 +335,7 @@
           error("Invalid total quote.");
         const total = money(Math.abs(cost));
         if (action === "buy" ? total > quoteLimit : total < quoteLimit)
-          error("Another team traded first. Check the new total and try again.", 409);
+          error("The price changed. Check the new total and try again.", 409);
       }
       if (cost > player.cash + 1e-9) error("You need more practice cash for this trade.", 409);
       if (all) {
