@@ -427,45 +427,6 @@ footer {
 .charthead strong { margin: 4px 0 1px; }
 .charthead small { color: #e9e2f3; }
 .ticket { min-width: 0; }
-.ticket-tape {
-  margin: 14px 0;
-  padding: 10px 12px;
-  border-radius: 9px;
-  color: #126154;
-  background: #eef5ef;
-}
-.ticket-tape.lower {
-  color: #923c4d;
-  background: #f8f0ee;
-}
-.ticket-tape figcaption,
-.tape-plot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.ticket-tape h3 { margin: 0; font-size: 14px; line-height: 1.25; }
-.ticket-tape figcaption strong {
-  white-space: nowrap;
-  font-size: 21px;
-  line-height: 1.1;
-  letter-spacing: -.025em;
-  font-variant-numeric: tabular-nums;
-}
-.tape-plot { margin-top: 6px; }
-.tape-plot svg { width: 0; flex: 1 1 auto; height: 35px; }
-.tape-range {
-  display: block;
-  font-size: 10px;
-  color: #61655e;
-}
-.ticket-tape p {
-  font-size: 12px;
-  color: #394740;
-  margin-top: 4px;
-}
-.ticket-tape.lower p {color: #574447;}
 .wide {
   display: flex;
   justify-content: space-between;

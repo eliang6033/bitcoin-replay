@@ -12,7 +12,7 @@ Each new round includes **20 simulated traders**. They look at how far Bitcoin h
 
 The Up and Down rows show each outcome's market-implied chance and how many student teams currently own it. Each team counts once per side it holds. The live activity beside the chart shows confirmed buys and sales in practice dollars, with NPC orders marked separately. It can be paused independently of the round.
 
-Each team gets **$100,000 in practice cash**. The gold line is the historical price of one bitcoin in US dollars. The labeled horizontal line marks where Bitcoin started. The smaller chart shows what it costs in practice dollars to back the selected outcome once. That price changes when classmates and simulated traders act. For example, a prediction bought for $4,000 pays $10,000 in total if correct or $0 if wrong. It can also be sold before the clock runs out.
+Each team gets **$100,000 in practice cash**. The gold line is the historical price of one bitcoin in US dollars. The labeled horizontal line marks where Bitcoin started. Pick a side and an order size. Buy shows the total you would pay, and Sell shows how much cash you could get back before the round ends.
 
 ## Try the local edition on one computer
 

@@ -34,7 +34,7 @@ function shape(tag, attrs, content) {
   if (content != null) e.textContent = content;
   return e;
 }
-let bitcoinPlotKey = "", ticketPlotKey = "";
+let bitcoinPlotKey = "";
 function draw(s, net) {
   const svg = $("graph");
   const width = Math.round(svg.clientWidth), height = Math.round(svg.clientHeight);
@@ -84,46 +84,6 @@ function draw(s, net) {
     );
   }
   svg.replaceChildren(fragment);
-}
-function drawTicketTape(s) {
-  const history = s.ticketHistory || [];
-  const visible = s.phase === "trading";
-  show("ticketTape", visible);
-  if (!visible) return;
-  const lower = selectedSide === "down";
-  const series = lower ? history.filter(point => Number.isFinite(point.downPrice)) : history;
-  const name = sideName(selectedSide);
-  const field = lower ? "downPrice" : "price";
-  const quote = lower ? s.quotes.buyDown : s.quotes.buyUp;
-  label("tapeHeading", "One “" + name + "” share costs");
-  $("ticketTape").classList.toggle("lower", lower);
-  label("tapeQuote", practice(quote));
-  show("tapePlot", series.length > 0);
-  show("tapeRange", series.length > 0);
-  if (!series.length) return;
-  const end = Math.max(0, Math.floor(s.elapsed * 4) / 4, series[series.length - 1].second);
-  const first = Math.max(0, end - 30, series[0].second);
-  label("tapeRange", end >= 30 ? "Room bets · share price over the last 30s" : "Room bets · share price since the start");
-  const key = [s.roundId, name, end, series.length, quote].join("/");
-  if (ticketPlotKey === key) return;
-  ticketPlotKey = key;
-  // Anchor the visible window to the last actual quote at or before its left edge.
-  let idx = series.length - 1;
-  while (idx > 0 && series[idx].second > first) idx--;
-  const x = second => 3 + (second - first) * 291 / Math.max(1, end - first);
-  const y = price => 51 - price * 4.6;
-  let path = `M 3 ${y(series[idx][field]).toFixed(2)}`;
-  for (const point of series.slice(idx + 1)) {
-    if (point.second <= first) continue;
-    path += ` H ${x(point.second).toFixed(2)} V ${y(point[field]).toFixed(2)}`;
-  }
-  path += ` H ${x(end).toFixed(2)}`;
-  const graph = $("ticketGraph");
-  graph.replaceChildren(
-    shape("path", {d: path, fill: "none", stroke: "currentColor", "stroke-width": 2.1, "stroke-linejoin": "round", "vector-effect": "non-scaling-stroke"}),
-    shape("circle", {cx: x(end), cy: y(quote), r: 2.6, fill: "currentColor"})
-  );
-  graph.setAttribute("aria-label", `One “${name}” share costs ${practice(quote)} in practice cash. The line shows how the price for this prediction has changed.`);
 }
 let feedRound, feedCursor = 0, feedPaused = false, visibleFills = [], lastNpcSecond = -Infinity;
 const compactFeed = window.matchMedia("(max-width: 1010px)");
@@ -360,7 +320,6 @@ function paint(s) {
   label("baselineLabel", "Taller bar = more transactions");
   show("baselineLabel", net);
   draw(s, net);
-  drawTicketTape(s);
   drawTradeFeed(s);
   label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
@@ -551,7 +510,6 @@ for (const side of ["up", "down"]) {
     selectedSide = side;
     updateOutcomeRows(state);
     setOrders();
-    drawTicketTape(state);
   };
 }
 quantityControl.onchange = setOrders;

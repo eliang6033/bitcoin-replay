@@ -34,10 +34,6 @@
 .exchange .chartcard { background: linear-gradient(150deg,#1c2531,#131920); }
 .exchange .charthead small, .exchange .timer span { color: #b9c1cc; }
 .exchange .chartfoot { border-color: #303945; color: #adb6c1; }
-.exchange .ticket-tape { color: #80dfbf; background: #18302b; }
-.exchange .ticket-tape.lower { color: #ff9da9; background: #35242a; }
-.exchange .ticket-tape p, .exchange .tape-range { color: #bfd1cb; }
-.exchange .ticket-tape.lower p, .exchange .ticket-tape.lower .tape-range { color: #ddc3ca; }
 .exchange .size-row button { color: #b9c3d0; }
 .exchange .size-row button[aria-pressed="true"] { color: white; background: #354457; border-color: #95a6bb; }
 .exchange #buy { background: #417dc7; border-color: #4e8ad4; color: white; }
