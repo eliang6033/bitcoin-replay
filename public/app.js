@@ -175,7 +175,8 @@ function setOrders() {
     const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
     const verb = buying ? "Place bet" : "Cash out";
     const cost = (buying ? "Pay ≈ " : "Get ≈ ") + practice(total);
-    const unavailable = buying ? "Not enough cash" : owned ? "Choose a larger size" : "No shares yet";
+    const unavailable = buying && s.bulk && percent < 100 && s.bulk[selectedSide].buy[100].quantity > 0
+      ? "Try a larger size" : buying ? "Not enough cash" : owned ? "Choose fewer shares" : "No shares yet";
     label(action + "Price", canFill ? cost : unavailable);
     $(action).setAttribute("aria-label", canFill
       ? `${verb}, ${quantity} “${name}” ${shareLabel(quantity)}. ${cost}.`
