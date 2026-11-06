@@ -1,0 +1,118 @@
+.exchange {
+  color-scheme: dark;
+  --paper: #0d1117;
+  --ink: #f2f5f8;
+  --soft: #a6b0bd;
+  --line: #2a333f;
+  --purple: #87bdff;
+  --green: #54dfb3;
+  --red: #ff8193;
+  background: var(--paper);
+  color: var(--ink);
+}
+.exchange .nav { min-height: 54px; }
+.exchange .wordmark i { background: #efba63; color: #19160e; }
+.exchange .hero { padding: 20px 0 16px; }
+.exchange h1 {
+  margin: 3px 0 5px;
+  font: 740 clamp(30px, 4vw, 47px)/1.12 "Avenir Next", "Helvetica Neue", sans-serif;
+  letter-spacing: -.055em;
+}
+.exchange .hero p { font-size: 15px; }
+.exchange .era { color: #e9bd78; }
+.exchange .signal { background: currentColor; }
+.exchange .hostbar, .exchange .standings, .exchange .ticket, .exchange .chartcard {
+  background: #161b22;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.exchange .hostbar span, .exchange .host-info p { color: var(--soft); }
+.exchange button { background: #202834; }
+.exchange .navlink { background: transparent; }
+.exchange .ink, .exchange .primary { color: #0c1824; background: #9dcaff; border-color: #9dcaff; }
+.exchange input, .exchange select { color: var(--ink); background: #0e141b; border-color: #495564; }
+.exchange .chartcard { background: linear-gradient(150deg,#1c2531,#131920); }
+.exchange .charthead small, .exchange .timer span { color: #b9c1cc; }
+.exchange .chartfoot { border-color: #303945; color: #adb6c1; }
+.exchange .ticket-tape { color: #80dfbf; background: #18302b; }
+.exchange .ticket-tape.lower { color: #ff9da9; background: #35242a; }
+.exchange .ticket-tape p, .exchange .tape-range { color: #bfd1cb; }
+.exchange .ticket-tape.lower p, .exchange .ticket-tape.lower .tape-range { color: #ddc3ca; }
+.exchange .size-row button { color: #b9c3d0; }
+.exchange .size-row button[aria-pressed="true"] { color: white; background: #354457; border-color: #95a6bb; }
+.exchange #buy { background: #417dc7; border-color: #4e8ad4; color: white; }
+.exchange #sell { background: #253649; border-color: #53667c; color: #e7f1ff; }
+.exchange #sell:disabled { background: #222831; border-color: #38414e; color: #a9b1bd; }
+.exchange .cashout-all { color: #a9ceff; background: transparent; }
+.exchange #notice { color: #a9ceff; }
+.exchange .status { background: #422f1d; color: #ffe2ab; }
+.exchange dialog { background: #171e27; color: var(--ink); }
+.exchange dialog code { background: #263244; }
+
+.market-board { margin: 0 0 17px; border: 1px solid #2d3744; border-radius: 14px; overflow: hidden; background: #151a21; }
+.board-head, .market-board .market-row {
+  display: grid;
+  grid-template-columns: minmax(205px,1.4fr) minmax(150px,1fr) minmax(130px,.75fr) 108px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+}
+.board-head {
+  min-height: 31px;
+  color: #adb7c3;
+  font-size: 12px;
+  font-weight: 550;
+  background: #181f28;
+}
+.market-board .market-row {
+  --outcome: #64dfba;
+  --outcome-surface: #1e3936;
+  width: 100%;
+  min-height: 67px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #2e3742;
+  border-radius: 0;
+  background: #151a21;
+  color: #f0f3f7;
+  text-align: left;
+}
+.market-board #pickDown { --outcome: #ff8191; --outcome-surface: #402831; }
+.market-board .market-row[aria-pressed="true"] { background: #1d252e; box-shadow: inset 3px 0 var(--outcome); border-color: #35404c; }
+.market-board .market-row:hover:enabled { background: #232d37; filter: none; }
+.market-board .market-row:focus-visible { outline: 2px solid #c0e0ff; outline-offset: -3px; }
+.outcome-name { display: flex; gap: 12px; align-items: center; }
+.outcome-name > i {
+  display: grid; place-items: center; width: 37px; height: 37px;
+  border-radius: 11px; background: var(--outcome-surface); color: var(--outcome);
+  font: 600 26px/1 sans-serif;
+}
+.outcome-name b { display: block; color: #f4f6f9; line-height: 1.1; font-size: 21px; }
+.outcome-name small { color: #aeb9c6; font-size: 12px; font-weight: 450; }
+.odds-cell { display: flex; align-items: center; gap: 14px; }
+.odds-cell strong { min-width: 4ch; color: #f5f7fa; font-size: clamp(25px,3vw,36px); font-weight: 710; line-height: 1; letter-spacing: -.065em; font-variant-numeric: tabular-nums; }
+.odds-meter { display: block; overflow: hidden; width: min(8vw,90px); height: 5px; border-radius: 3px; background: #35404c; }
+.odds-meter i { display: block; height: 100%; background: var(--outcome); transition: width .22s ease; }
+.holder-count { color: #d5dde6; font-weight: 550; font-size: 15px; }
+.pick-cta { color: var(--outcome); background: var(--outcome-surface); border-radius: 7px; padding: 7px 10px; text-align: center; font-size: 13px; }
+.market-row[aria-pressed="true"] .pick-cta { color: #101920; background: var(--outcome); }
+#mobileTrades:empty { display: none; }
+#mobileTrades .trade-feed { margin: 8px 0 12px; padding: 8px 12px; border: 1px solid #303b48; border-radius: 9px; background: #18212b; }
+@media (max-width: 790px) {
+  .board-head, .market-board .market-row { grid-template-columns: minmax(130px,1.2fr) minmax(88px,.8fr) minmax(85px,.8fr) 82px; gap: 8px; padding: 0 13px; }
+  .exchange .layout:has(#tradePanel:not([hidden])) .ticket { order: -1; }
+}
+@media (max-width: 570px) {
+  .board-head, .market-board .market-row { grid-template-columns: minmax(116px,1fr) 76px 76px; gap: 5px; padding: 0 10px; }
+  .board-head { font-size: 11px; line-height: 1.2; }
+  .pick-cta, .board-head span:last-child, .odds-meter { display: none; }
+  .market-board .market-row { min-height: 58px; }
+  .outcome-name { gap: 7px; }
+  .outcome-name > i { width: 29px; height: 31px; font-size: 20px; }
+  .outcome-name b { font-size: 17px; }
+  .outcome-name small { display: block; font-size: 10px; line-height: 1.25; }
+  .holder-count { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .odds-meter i { transition: none; }
+}

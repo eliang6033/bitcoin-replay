@@ -11,6 +11,7 @@
   const NPC_COUNT = 20;
   const SIDES = ["up", "down"];
   const PREOPEN_TRADES = 12;
+  const FEED_LIMIT = 64;
 
   function error(message, status = 400) {
     throw Object.assign(new Error(message), { status });
@@ -56,6 +57,7 @@
         this.units = { ...saved.units };
         this.players = new Map(saved.players.map(([key, player]) => [key, { ...player }]));
         this.executed = new Map(saved.executed);
+        this.tradeFeed = (saved.tradeFeed || []).slice(-FEED_LIMIT);
         if (saved.market) {
           this.market = {
             ...saved.market,
@@ -83,6 +85,7 @@
         units: { ...this.units },
         players: Array.from(this.players, ([key, player]) => [key, { ...player }]),
         executed: Array.from(this.executed),
+        tradeFeed: this.tradeFeed.slice(),
         market: {
           ...this.market,
           traders: this.market.traders.map(p => ({ ...p })),
@@ -99,6 +102,7 @@
       this.units = { up: 0, down: 0 };
       this.players = new Map();
       this.executed = new Map();
+      this.tradeFeed = [];
       this.initMarket(true);
     }
 
@@ -158,7 +162,17 @@
       this.units[side] += delta;
     }
 
-    npcOrder(minute) {
+    recordTrade(second, actor, name, action, side, quantity, cost) {
+      const last = this.tradeFeed[this.tradeFeed.length - 1];
+      const id = last ? last.id + 1 : 1;
+      if (this.tradeFeed.length === FEED_LIMIT) this.tradeFeed.shift();
+      this.tradeFeed.push({
+        id, actor, name, action, side, quantity, total: money(Math.abs(cost)),
+        second: Math.max(second, last?.second ?? 0),
+      });
+    }
+
+    npcOrder(minute, second) {
       const traders = this.market.traders;
       const who = Math.floor(this.random() * traders.length);
       const trader = traders[who];
@@ -175,16 +189,19 @@
       const leanUp = 0.5 + 0.46 * Math.tanh(1.5 * gap);
       const side = this.random() < leanUp ? "up" : "down";
       const other = side === "up" ? "down" : "up";
-      let quantity = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap)));
+      let fillSide = side;
+      let delta = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap)));
       if (trader[other] > 0) {
         // Selling the other outcome moves the odds in the same direction.
-        quantity = Math.min(trader[other], quantity);
-        this.fill(trader, other, -quantity, this.quote(other, -quantity));
+        fillSide = other;
+        delta = -Math.min(trader[other], delta);
       } else {
-        while (quantity && this.quote(side, quantity) > trader.cash) quantity--;
-        if (!quantity) return false;
-        this.fill(trader, side, quantity, this.quote(side, quantity));
+        while (delta && this.quote(side, delta) > trader.cash) delta--;
+        if (!delta) return false;
       }
+      const cost = this.quote(fillSide, delta);
+      this.fill(trader, fillSide, delta, cost);
+      this.recordTrade(second, "npc", trader.name, delta > 0 ? "buy" : "sell", fillSide, Math.abs(delta), cost);
       return true;
     }
 
@@ -203,7 +220,7 @@
           }
         }
         m.lastMinute = minute;
-        if (this.npcOrder(minute)) {
+        if (this.npcOrder(minute, at / 1000)) {
           m.trades++;
           this.recordTicket(at / 1000);
         }
@@ -330,7 +347,9 @@
       } else {
         this.fill(player, side, delta, cost);
       }
-      this.recordTicket(this.elapsed(now));
+      const elapsed = this.elapsed(now);
+      this.recordTicket(elapsed);
+      this.recordTrade(elapsed, "team", player.name, action, side, quantity, cost);
       if (reference) this.executed.set(reference, [side, action, quantity]);
     }
 
@@ -405,6 +424,11 @@
           )
         : [];
       const quoteTotals = {};
+      const support = { up: 0, down: 0 };
+      for (const player of this.players.values()) {
+        if (player.up > 0) support.up++;
+        if (player.down > 0) support.down++;
+      }
       for (const side of ["up", "down"]) {
         const suffix = side === "up" ? "Up" : "Down";
         for (const [action, sign] of [["buy", 1], ["sell", -1]]) {
@@ -430,9 +454,11 @@
         quoteTotals,
         bulk: player && !revealed ? this.bulkQuotes(player) : null,
         players: this.players.size,
+        support,
         npcCount: this.market.traders.length,
         npcTrades: this.market.trades,
         ticketHistory: this.market.history.slice(),
+        tradeFeed: this.tradeFeed.slice(),
         me: player ? { ...player, cash: money(player.cash), points: points(player) } : null,
         rankings: Array.from(this.players.values(), (p) => ({
           name: p.name,

@@ -17,8 +17,15 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   }
   let peerNumber = 0;
   let latestReply;
+  let legacyGuest = false, legacyHost = false;
   class Channel extends EventEmitter {
     send(value) {
+      if (legacyGuest && value.path) delete value.feedAfter;
+      if (legacyHost && value.state) {
+        delete value.state.tradeFeed;
+        delete value.state.feedStart;
+        delete value.state.support;
+      }
       if (value.state) latestReply = structuredClone(value.state);
       queueMicrotask(() => { if (this.open) this.other.emit("data", structuredClone(value)); });
     }
@@ -96,16 +103,29 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   const unattended = await student.request("state");
   assert.ok(unattended.npcTrades > 0);
   const observer = await spectator.request("state");
+  assert.deepEqual(observer.tradeFeed, unattended.tradeFeed);
+  assert.deepEqual(observer.support, { up: 0, down: 0 });
   assert.deepEqual(observer.ticketHistory, unattended.ticketHistory);
   assert.deepEqual(observer.prices, unattended.prices);
   assert.equal(latestReply.priceOffset, 1);
   assert.equal(latestReply.prices.length, observer.prices.length - 1);
-  assert.deepEqual((await spectator.request("state")).prices, unattended.prices);
+  const idle = await spectator.request("state");
+  assert.deepEqual(idle.prices, unattended.prices);
+  assert.deepEqual(idle.tradeFeed, observer.tradeFeed);
+  assert.equal(latestReply.feedStart, observer.tradeFeed[0].id);
+  assert.equal(latestReply.tradeFeed.length, 0);
   assert.equal(latestReply.prices.length, 0);
   const traded = await student.request("trade", { action: "buy", side: "down" });
   assert.equal(traded.me.down, 1);
   assert.ok(traded.quotes.buyUp < unattended.quotes.buyUp);
-  assert.equal((await spectator.request("state")).ticketHistory.at(-1).price, traded.quotes.buyUp);
+  const afterTrade = await spectator.request("state");
+  assert.equal(afterTrade.ticketHistory.at(-1).price, traded.quotes.buyUp);
+  assert.deepEqual(afterTrade.tradeFeed, traded.tradeFeed);
+  assert.deepEqual(afterTrade.support, { up: 0, down: 1 });
+  assert.equal(latestReply.tradeFeed.length, 1);
+  assert.equal(latestReply.tradeFeed[0].name, "First table");
+  assert.equal(latestReply.tradeFeed[0].actor, "team");
+  assert.equal((await spectator.request("state")).tradeFeed.filter(fill => fill.actor === "team").length, 1);
   assert.equal(traded.reveal, null);
   milliseconds += 5500;
   const beforeRefresh = await student.request("state");
@@ -121,6 +141,31 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.deepEqual(restored.ticketHistory, beforeRefresh.ticketHistory);
   assert.deepEqual(restored.prices, beforeRefresh.prices);
   assert.equal(restored.npcTrades, beforeRefresh.npcTrades);
+  assert.deepEqual(restored.tradeFeed, beforeRefresh.tradeFeed);
+  milliseconds += 120000;
+  const caughtUp = await student.request("state");
+  assert.equal(caughtUp.tradeFeed.length, 64);
+  assert.ok(caughtUp.tradeFeed[0].id > restored.tradeFeed.at(-1).id);
+  assert.equal(latestReply.feedStart, undefined);
+  const next = await student.request("trade", { action: "sell", side: "down", quantity: 1 });
+  assert.equal(next.tradeFeed.length, 64);
+  assert.equal(latestReply.tradeFeed.length, 1);
+  assert.deepEqual(next.support, { up: 0, down: 0 });
+  assert.equal(latestReply.feedStart, next.tradeFeed[0].id);
+  assert.deepEqual(next.tradeFeed, structuredClone((await host.request("state")).tradeFeed));
+  legacyGuest = true;
+  assert.deepEqual((await student.request("state")).tradeFeed, next.tradeFeed);
+  assert.equal(latestReply.feedStart, undefined);
+  legacyGuest = false;
+  legacyHost = true;
+  assert.equal((await student.request("state")).tradeFeed, undefined);
+  legacyHost = false;
+  assert.deepEqual((await student.request("state")).tradeFeed, next.tradeFeed);
+  await host.request("host", { action: "reset" });
+  const clean = await student.request("state");
+  assert.deepEqual(clean.tradeFeed, []);
+  assert.deepEqual(clean.support, { up: 0, down: 0 });
+  assert.notEqual(clean.roundId, restored.roundId);
   presenting.dispose(); playing.dispose(); watching.dispose();
   await new Promise(resolve => setImmediate(resolve));
 

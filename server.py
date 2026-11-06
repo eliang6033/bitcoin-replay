@@ -8,6 +8,7 @@ import secrets
 import socket
 import threading
 import time
+from collections import deque
 from datetime import datetime, timezone
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent / "public"
-ASSETS = {"index.html", "app.js", "style.css", "room-qr.js", "vendor/qrcode.js"}
+ASSETS = {"index.html", "app.js", "style.css", "market.css", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
 LIQUIDITY = 18
@@ -24,6 +25,7 @@ PERCENTAGES = (10, 25, 50, 100)
 NETWORK_DURATION = 60
 NPC_COUNT = 20
 PREOPEN_TRADES = 12
+FEED_LIMIT = 64
 
 
 class GameError(Exception):
@@ -68,6 +70,7 @@ class Room:
         self.started = self.network_started = None
         self.winner = None
         self.executed = {}
+        self.trade_feed = deque(maxlen=FEED_LIMIT)
         self.round_id = secrets.token_hex(5)
         self.rng = (int(self.round_id[:8], 16) if self.seed is None else self.seed) & 0xffffffff
         self.npcs = [{"name": f"NPC {i + 1:02}", "cash": STARTING_CASH, "up": 0, "down": 0}
@@ -97,6 +100,15 @@ class Room:
         player[side] += delta
         self.units[side] += delta
 
+    def record_trade(self, second, actor, name, action, side, quantity, cost):
+        last = self.trade_feed[-1] if self.trade_feed else None
+        self.trade_feed.append({
+            "id": last["id"] + 1 if last else 1,
+            "actor": actor, "name": name, "action": action, "side": side,
+            "quantity": quantity, "total": money(abs(cost)),
+            "second": max(second, last["second"] if last else 0),
+        })
+
     def warm_market(self):
         self.record_ticket(-PREOPEN_TRADES)
         sides = ["up", "down"] * (PREOPEN_TRADES // 2)
@@ -107,7 +119,7 @@ class Room:
             self.fill(self.npcs[i], side, 1, self.quote(side, 1))
             self.record_ticket(i + 1 - PREOPEN_TRADES)
 
-    def npc_order(self, minute):
+    def npc_order(self, minute, second):
         seat = int(self.random() * NPC_COUNT)
         trader = self.npcs[seat]
         price = self.prices[minute]["price"]
@@ -123,17 +135,20 @@ class Room:
         lean_up = 0.5 + 0.46 * math.tanh(1.5 * gap)
         side = "up" if self.random() < lean_up else "down"
         other = "down" if side == "up" else "up"
-        quantity = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap)))
+        fill_side = side
+        delta = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap)))
         if trader[other]:
             # Selling the other outcome moves the odds in the same direction.
-            quantity = min(trader[other], quantity)
-            self.fill(trader, other, -quantity, self.quote(other, -quantity))
+            fill_side = other
+            delta = -min(trader[other], delta)
         else:
-            while quantity and self.quote(side, quantity) > trader["cash"]:
-                quantity -= 1
-            if not quantity:
+            while delta and self.quote(side, delta) > trader["cash"]:
+                delta -= 1
+            if not delta:
                 return False
-            self.fill(trader, side, quantity, self.quote(side, quantity))
+        cost = self.quote(fill_side, delta)
+        self.fill(trader, fill_side, delta, cost)
+        self.record_trade(second, "npc", trader["name"], "buy" if delta > 0 else "sell", fill_side, abs(delta), cost)
         return True
 
     def advance_market(self, elapsed):
@@ -146,7 +161,7 @@ class Room:
                 if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= threshold:
                     self.burst_until_ms = at + 3500
             self.last_npc_minute = minute
-            if self.npc_order(minute):
+            if self.npc_order(minute, at / 1000):
                 self.npc_trades += 1
                 self.record_ticket(at / 1000)
             interval = 170 + 120 * self.random() if at < self.burst_until_ms else 610 + 440 * self.random()
@@ -275,6 +290,7 @@ class Room:
         else:
             self.fill(player, side, delta, cost)
         self.record_ticket(elapsed)
+        self.record_trade(elapsed, "team", player["name"], action, side, quantity, cost)
         if order_id is not None:
             self.executed[key, order_id] = (side, action, quantity)
 
@@ -323,6 +339,8 @@ class Room:
             "quoteTotals": quote_totals,
             "bulk": self.bulk_quotes(player) if player and not revealed else None,
             "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
+            "tradeFeed": list(self.trade_feed),
+            "support": {side: sum(p[side] > 0 for p in self.players.values()) for side in ("up", "down")},
             "players": len(self.players), "me": None if player is None else {
                 **player, "cash": money(player["cash"]), "points": balance(player)},
             "rankings": sorted([{"name": p["name"], "points": balance(p)} for p in self.players.values()],

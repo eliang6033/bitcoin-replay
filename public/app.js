@@ -92,7 +92,7 @@ function drawTicketTape(s) {
   if (!visible) return;
   const lower = selectedSide === "down";
   const series = lower ? history.filter(point => Number.isFinite(point.downPrice)) : history;
-  const name = lower ? "At or below" : "Above";
+  const name = sideName(selectedSide);
   const field = lower ? "downPrice" : "price";
   const quote = lower ? s.quotes.buyDown : s.quotes.buyUp;
   label("tapeHeading", "One “" + name + "” share costs");
@@ -125,6 +125,102 @@ function drawTicketTape(s) {
   );
   graph.setAttribute("aria-label", `One “${name}” share costs ${practice(quote)} in practice cash. The line shows how the price for this prediction has changed.`);
 }
+let feedRound, feedCursor = 0, feedPaused = false, visibleFills = [], lastNpcSecond = -Infinity;
+const compactFeed = window.matchMedia("(max-width: 1010px)");
+// On phones the tape sits next to the trade buttons while a player is ordering.
+const phoneFeed = window.matchMedia("(max-width: 790px)");
+const chartFeedHome = $("tradeTape").parentNode;
+function placeTradeFeed(s) {
+  const home = phoneFeed.matches && s.me && s.phase === "trading" ? $("mobileTrades") : chartFeedHome;
+  if ($("tradeTape").parentNode !== home) home.append($("tradeTape"));
+}
+function makeFillRow(fill, me) {
+  const row = document.createElement("li");
+  row.className = "fill-row";
+  row.dataset.fillId = String(fill.id);
+  row.dataset.actor = fill.actor;
+  row.dataset.side = fill.side;
+  row.dataset.action = fill.action;
+  const who = document.createElement("span");
+  who.className = "fill-who";
+  who.textContent = fill.actor === "team" ? (fill.name === me?.name ? "You · " : "Team · ") + fill.name : fill.name;
+  who.title = who.textContent;
+  const amount = document.createElement("b");
+  amount.className = "fill-amount";
+  amount.textContent = practice(fill.total);
+  const detail = document.createElement("span");
+  detail.className = "fill-what";
+  detail.textContent = fill.action === "sellAll" ? "Sold all positions" :
+    (fill.action === "buy" ? "Bought " : "Sold ") + sideName(fill.side);
+  row.append(who, detail, amount);
+  return row;
+}
+function drawTradeFeed(s) {
+  placeTradeFeed(s);
+  const active = s.phase === "trading" && Array.isArray(s.tradeFeed);
+  show("tradeTape", active);
+  const rows = $("fillRows");
+  if (!active || feedRound !== s.roundId) {
+    visibleFills = [];
+    feedCursor = 0;
+    lastNpcSecond = -Infinity;
+    if (rows.childElementCount) rows.replaceChildren();
+    feedRound = s.roundId;
+    if (!active) return;
+  }
+  const latest = s.tradeFeed.at(-1)?.id || 0;
+  if (feedPaused || document.hidden) {
+    feedCursor = Math.max(feedCursor, latest);
+    return;
+  }
+
+  // Skip a backlog after a tab sleeps or reconnects. Keep each already
+  // displayed trade in the same DOM node so a poll never restarts its motion.
+  const fresh = s.tradeFeed.filter(fill => fill.id > feedCursor && fill.second >= s.elapsed - 2);
+  feedCursor = Math.max(feedCursor, latest);
+  const candidates = visibleFills.filter(fill => fill.second >= s.elapsed - 8);
+  for (const fill of fresh) {
+    if (fill.actor === "npc") {
+      if (fill.second - lastNpcSecond < 0.6) continue;
+      lastNpcSecond = fill.second;
+    }
+    candidates.unshift(fill);
+  }
+  candidates.sort((a, b) => b.id - a.id);
+  const slots = compactFeed.matches ? 2 : 4;
+  const selected = candidates.slice(0, slots);
+  // Rapid NPC orders must leave a recent classmate's fill readable.
+  const team = candidates.find(fill => fill.actor === "team" && fill.name !== s.me?.name && fill.second >= s.elapsed - 5)
+    || candidates.find(fill => fill.actor === "team" && fill.second >= s.elapsed - 5);
+  if (team && !selected.includes(team)) selected[slots - 1] = team;
+  visibleFills = selected;
+
+  const activeRows = new Map(Array.from(rows.children, row => [Number(row.dataset.fillId), row]));
+  const nodes = selected.map((fill, slot) => {
+    const row = activeRows.get(fill.id) || makeFillRow(fill, s.me);
+    activeRows.delete(fill.id);
+    row.style.setProperty("--slot", slot);
+    row.style.setProperty("--intensity", Math.max(.66, 1 - slot * .09 - .04 * Math.max(0, s.elapsed - fill.second - 3)));
+    return row;
+  });
+  for (const removed of activeRows.values()) removed.remove();
+  // Normally a new order only inserts one node before the previous newest.
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const next = nodes[i + 1] || null;
+    if (nodes[i].parentNode !== rows || nodes[i].nextSibling !== next) rows.insertBefore(nodes[i], next);
+  }
+  show("feedEmpty", !selected.length);
+}
+$("toggleTradeFeed").onclick = () => {
+  feedPaused = !feedPaused;
+  label("toggleTradeFeed", feedPaused ? "▶" : "Ⅱ");
+  const instruction = feedPaused ? "Resume room trades" : "Pause room trades";
+  $("toggleTradeFeed").setAttribute("aria-label", instruction);
+  $("toggleTradeFeed").title = instruction;
+  $("tradeTape").classList.toggle("paused", feedPaused);
+  label("feedEmpty", feedPaused ? "Room trades paused" : "Waiting for trades…");
+  if (!feedPaused && state) drawTradeFeed(state);
+};
 function roomCount(s) {
   const students = num.format(s.players) + (s.players === 1 ? " student team" : " student teams");
   return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
@@ -132,7 +228,28 @@ function roomCount(s) {
 const quantityControl = $("quantity");
 const sizeButtons = Array.from(document.querySelectorAll("#sizing [data-size]"));
 const shareLabel = quantity => quantity === 1 ? "share" : "shares";
-const sideName = side => side === "up" ? "Above" : "At or below";
+const sideName = side => side === "up" ? "Up" : "Down";
+function updateOutcomeRows(s) {
+  const up = Math.min(100, Math.max(0, s.upPrice * 10));
+  const roundedUp = Math.round(up);
+  for (const side of ["up", "down"]) {
+    const name = sideName(side);
+    const chance = side === "up" ? up : 100 - up;
+    const percentage = chance < 1 ? "<1%" : chance > 99 ? ">99%" :
+      (side === "up" ? roundedUp : 100 - roundedUp) + "%";
+    const teams = s.support?.[side];
+    label("odds" + name, percentage);
+    $("bar" + name).style.width = chance + "%";
+    label("holders" + name, Number.isInteger(teams) ? teams + (teams === 1 ? " team" : " teams") : "Unavailable");
+    const selected = side === selectedSide;
+    label("select" + name, selected ? "Selected ✓" : "Pick " + name);
+    const pick = $("pick" + name);
+    pick.setAttribute("aria-pressed", selected);
+    pick.setAttribute("aria-label", name + ", " + percentage + " market chance" +
+      (Number.isInteger(teams) ? ", " + teams + (teams === 1 ? " class team holding" : " class teams holding") : ""));
+    pick.disabled = busy;
+  }
+}
 function orderPreview(action) {
   if (state.bulk) return state.bulk[selectedSide][action][percent];
   // Hosts running a previous release still quote purchases of 1–10 shares.
@@ -164,16 +281,12 @@ function setOrders() {
   const name = sideName(selectedSide);
   const owned = s.me[selectedSide];
   label("owned", `You hold ${owned} “${name}” ${shareLabel(owned)}`);
-  for (const side of ["up", "down"]) {
-    const pick = $(side === "up" ? "pickUp" : "pickDown");
-    pick.setAttribute("aria-pressed", side === selectedSide);
-    pick.disabled = busy;
-  }
   for (const action of ["buy", "sell"]) {
     const {quantity, total} = orderPreview(action);
     const buying = action === "buy";
     const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
-    const verb = buying ? "Place bet" : "Cash out";
+    const verb = buying ? "Buy" : "Sell";
+    label(action + "Title", verb + " " + name);
     const cost = (buying ? "Pay ≈ " : "Get ≈ ") + practice(total);
     const unavailable = buying && s.bulk && percent < 100 && s.bulk[selectedSide].buy[100].quantity > 0
       ? "Try a larger size" : buying ? "Not enough cash" : owned ? "Choose fewer shares" : "No shares yet";
@@ -248,6 +361,7 @@ function paint(s) {
   show("baselineLabel", net);
   draw(s, net);
   drawTicketTape(s);
+  drawTradeFeed(s);
   label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
   show("hostbar", s.host);
@@ -277,7 +391,9 @@ function paint(s) {
   );
   show("joinForm", !s.me && !done);
   show("walletPanel", !!s.me);
-  show("prediction", !!s.me && !done);
+  document.body.classList.toggle("exchange", !done);
+  show("prediction", !done);
+  if (!done) updateOutcomeRows(s);
   show("tradePanel", !!s.me && !done);
   label("seat", s.me ? s.me.name : done ? "Spectator" : "");
   show("positionReturn", Boolean(s.me && (s.me.up || s.me.down || s.me.cash !== 100)) && inGame);
@@ -391,7 +507,7 @@ async function submit(path, body) {
       path === "trade"
         ? (body.action === "sellAll"
             ? "Cashed out all " + body.quantity + " " + shareLabel(body.quantity)
-            : (body.action === "buy" ? "Bet on" : "Cashed out") + " “" + sideName(body.side) + "” · " + body.quantity + " " + shareLabel(body.quantity)) +
+            : (body.action === "buy" ? "Bought " : "Sold ") + body.quantity + " " + sideName(body.side) + " " + shareLabel(body.quantity)) +
           " for " + practice(Math.abs(updated.me.cash - previousCash)) + "."
         : "",
     );
@@ -431,7 +547,9 @@ $("joinForm").onsubmit = (e) => {
 };
 for (const side of ["up", "down"]) {
   $(side === "up" ? "pickUp" : "pickDown").onclick = () => {
+    if (!state || busy) return;
     selectedSide = side;
+    updateOutcomeRows(state);
     setOrders();
     drawTicketTape(state);
   };
@@ -520,8 +638,8 @@ function modal(title, paragraphs, code) {
 $("guide").onclick = () =>
   modal("How to play", [
     "Join a team to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
-    "Choose where Bitcoin will finish. Your pick has its own price, shown on the small chart. Each share you hold at the end pays $10,000 in practice cash if you are right and $0 if you are wrong. A tie goes to “At or below.”",
-    "Place a bet with part of your cash. You can cash out shares while the clock is running. You and 20 simulated traders move the share prices together. You can spend only the cash you have.",
+    "Pick Up or Down. Market chance follows the room’s share prices. Team counts show how many student teams own that outcome. A team holding both counts on both sides.",
+    "Buy with part of your practice cash. To exit early, pick the side you own and press Sell. At the finish each correct share pays $10,000, and the other side pays $0. A tie goes to Down.",
   ]);
 $("invite").onclick = () =>
   modal(

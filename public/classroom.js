@@ -214,6 +214,15 @@
               state.ticketHistory = state.ticketHistory.slice(state.chartOffset);
             }
           }
+          // A student may have missed more trades than the host retains.
+          // Only send a delta when their last fill still belongs to this window.
+          const fills = state.tradeFeed;
+          const after = message.feedAfter;
+          if (message.roundId === state.roundId && fills?.length && Number.isSafeInteger(after) &&
+              after >= fills[0].id && after <= fills[fills.length - 1].id) {
+            state.feedStart = fills[0].id;
+            state.tradeFeed = fills.slice(after - state.feedStart + 1);
+          }
           conn.send({ id: message.id, state });
         } catch (error) {
           if (conn.open && secretFormat.test(message.id)) conn.send({ id: message.id, error: error.message });
@@ -235,11 +244,14 @@
     if (!idFormat.test(id)) throw Error("The room link is incomplete. Ask your host for a new link.");
     const player = playerKey(id);
     const { peer, ready } = openPeer();
-    let connection, connecting, roundId, lastChart, lastPrices;
+    let connection, connecting, roundId, lastChart, lastPrices, lastFeed;
     const pending = new Map();
 
     function disconnect(conn) {
-      if (connection === conn) connection = null;
+      if (connection === conn) {
+        connection = null;
+        lastFeed = null;
+      }
       for (const [id, request] of pending) {
         if (request.conn === conn) {
           pending.delete(id);
@@ -297,8 +309,11 @@
       if (path !== "state" && !connection?.open) throw Error("Reconnect and check your position before trading.");
       const conn = await connect();
       const requestId = randomKey();
+      const requestedRound = roundId || null;
       const previous = lastChart;
       const knownPrices = lastPrices;
+      const knownFeed = lastFeed?.roundId === requestedRound ? lastFeed.fills : null;
+      const feedAfter = knownFeed?.length ? knownFeed[knownFeed.length - 1].id : null;
       const priceCount = knownPrices && knownPrices.id === roundId ? knownPrices.prices.length : 0;
       // The newest quarter-second bucket can still change on a student fill.
       const index = previous ? previous.history.length - 2 : -1;
@@ -315,7 +330,7 @@
           resolve: value => { clearTimeout(timeout); resolve(value); },
           reject: error => { clearTimeout(timeout); reject(error); },
         });
-        try { conn.send({ id: requestId, path, body: body || null, roundId: roundId || null, token: player, chartCursor, priceCount }); }
+        try { conn.send({ id: requestId, path, body: body || null, roundId: requestedRound, token: player, chartCursor, priceCount, feedAfter }); }
         catch (error) { pending.get(requestId)?.reject(error); pending.delete(requestId); }
       });
       if (state.chartOffset !== undefined) {
@@ -336,6 +351,17 @@
         delete state.priceOffset;
       }
       if (Array.isArray(state.prices)) lastPrices = { id: state.roundId, prices: state.prices };
+      if (state.feedStart !== undefined) {
+        const start = state.feedStart;
+        if (!knownFeed?.length || state.roundId !== requestedRound ||
+            !Number.isSafeInteger(start) || start < knownFeed[0].id || start > feedAfter) {
+          lastFeed = null;
+          throw Error("Refreshing recent trades. Check your position before trading again.");
+        }
+        state.tradeFeed = knownFeed.slice(start - knownFeed[0].id).concat(state.tradeFeed);
+        delete state.feedStart;
+      }
+      lastFeed = Array.isArray(state.tradeFeed) ? { roundId: state.roundId, fills: state.tradeFeed } : null;
       roundId = state.roundId;
       return state;
     }

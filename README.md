@@ -10,6 +10,8 @@ Keep the host tab open and the device awake. On GitHub Pages the host's browser 
 
 Each new round includes **20 simulated traders**. They look at how far Bitcoin has moved from its starting price, its recent direction and the time left. They trade faster when the price moves sharply. They see the same historical prices as the class. A student's purchase or sale changes the price everyone can trade at.
 
+The Up and Down rows show each outcome's market-implied chance and how many student teams currently own it. Each team counts once per side it holds. The live activity beside the chart shows confirmed buys and sales in practice dollars, with NPC orders marked separately. It can be paused independently of the round.
+
 Each team gets **$100,000 in practice cash**. The gold line is the historical price of one bitcoin in US dollars. The labeled horizontal line marks where Bitcoin started. The smaller chart shows what it costs in practice dollars to back the selected outcome once. That price changes when classmates and simulated traders act. For example, a prediction bought for $4,000 pays $10,000 in total if correct or $0 if wrong. It can also be sold before the clock runs out.
 
 ## Try the local edition on one computer

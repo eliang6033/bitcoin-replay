@@ -185,6 +185,86 @@ a:focus-visible {
   overflow: hidden;
   box-shadow: 0 5px 16px #2922390d;
 }
+.market-view, .chart-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.chart-main { flex-direction: column; }
+.trade-feed {
+  --row: 63px;
+  flex: 0 0 clamp(166px, 15vw, 194px);
+  min-width: 0;
+  margin: 14px 0 17px;
+  padding: 0 15px;
+  border-left: 1px solid #ffffff21;
+}
+.feed-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.feed-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.feed-head i { width: 6px; height: 6px; border-radius: 50%; background: #83e8c0; box-shadow: 0 0 8px #75d9b477; }
+#toggleTradeFeed {
+  width: 30px; min-height: 30px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid #ffffff2e; border-radius: 50%;
+  background: transparent; color: #d5cfdf; font: 600 13px/1 system-ui, sans-serif;
+}
+#toggleTradeFeed:hover, #toggleTradeFeed:focus-visible { color: #fff; border-color: #d6cfe1; background: #ffffff14; }
+.feed-stage { position: relative; height: calc(4 * var(--row)); overflow: hidden; }
+#fillRows { padding: 0; margin: 0; list-style: none; }
+#feedEmpty { padding-top: 14px; color: #c1bbce; font-size: 12px; }
+.fill-row {
+  --accent: #87e7bf;
+  position: absolute; inset: 0 0 auto; min-width: 0;
+  height: var(--row); padding: 7px 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; align-items: baseline;
+  gap: 2px 6px;
+  border-bottom: 1px solid #ffffff12;
+  color: #ece8f2;
+  transform: translateY(calc(var(--slot) * var(--row)));
+  opacity: var(--intensity, 1);
+  transition: transform .4s cubic-bezier(.22,.82,.3,1), opacity .65s;
+}
+.fill-row[data-side="down"] { --accent: #ff9ba9; }
+.fill-row[data-action="sellAll"] { --accent: #d5bbff; }
+.fill-row > * { animation: trade-arrive .6s cubic-bezier(.15,.77,.3,1) both; }
+.fill-who {
+  grid-column: 1; grid-row: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 12px/1.5 "Avenir Next", system-ui, sans-serif;
+}
+.fill-amount { grid-column: 2; grid-row: 1; color: var(--accent); font: 680 14px/1.3 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.fill-what { grid-column: 1 / -1; grid-row: 2; color: #d1cbd8; font-size: 11px; line-height: 1.35; }
+.fill-row[data-actor="npc"] .fill-who { color: #b7afc4; font-weight: 450; }
+.trade-feed.paused .feed-head i { background: #aba3b9; box-shadow: none; }
+.trade-feed.paused .fill-row > * { animation-play-state: paused; }
+@keyframes trade-arrive {
+  from { opacity: 0; transform: translate(21px, 5px); }
+  to { opacity: 1; transform: translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fill-row { transition: none; }
+  .fill-row > * { animation: none; }
+}
+@media (max-width: 1010px) {
+  .market-view { flex-direction: column; }
+  .trade-feed {
+    --row: 29px;
+    flex: 0 0 auto;
+    margin: 0; padding: 5px 18px 9px;
+    border-left: 0; border-top: 1px solid #ffffff20;
+  }
+  .feed-stage { height: calc(2 * var(--row)); }
+  .fill-row { grid-template-columns: minmax(0, 1fr) auto auto; padding: 2px 0; align-items: center; gap: 6px; }
+  .fill-what { grid-column: 2; grid-row: 1; }
+  .fill-amount { grid-column: 3; grid-row: 1; }
+}
 .charthead {
   display: flex;
   align-items: flex-start;
@@ -401,27 +481,13 @@ footer {
 .marketRules summary {
   font-size: 13px;
 }
-.prediction, .sizing { min-width: 0; border: 0; margin: 0; padding: 0; }
-.prediction legend, .sizing legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
-.pick-row, .trade-actions {
+.sizing { min-width: 0; border: 0; margin: 0; padding: 0; }
+.sizing legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
+.trade-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 7px;
 }
-.pick-row button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 42px;
-  background: white;
-  padding: 8px 4px;
-}
-.pick-row button span { font-size: 19px; line-height: 1; }
-#pickUp { color: #16594e; }
-#pickDown { color: #8e3544; }
-#pickUp[aria-pressed="true"] { background: #e5f1e9; border-color: #1a6753; box-shadow: inset 0 0 0 1px #1a6753; }
-#pickDown[aria-pressed="true"] { background: #f8e7e6; border-color: #953f4f; box-shadow: inset 0 0 0 1px #953f4f; }
 .trade-actions button {
   display: grid;
   place-content: center;

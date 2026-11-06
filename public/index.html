@@ -6,12 +6,13 @@
     <meta name="theme-color" content="#201b30" />
     <title>Bitcoin Replay · Classroom market</title>
     <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./market.css" />
     <!-- Online room scripts -->
     <script defer src="./vendor/qrcode.js"></script>
     <script defer src="./room-qr.js"></script>
     <script defer src="./app.js"></script>
   </head>
-  <body>
+  <body class="exchange">
     <header>
       <div class="nav">
         <a class="wordmark" href="./" aria-label="Bitcoin Replay home"
@@ -43,6 +44,23 @@
           ><button id="invite">Class QR code</button><button id="hostAction" class="ink"></button>
         </div>
       </section>
+      <section class="market-board" id="prediction" aria-label="Choose a market outcome" hidden>
+        <div class="board-head">
+          <span>Outcome</span><span>Market chance</span><span>Class teams holding</span><span></span>
+        </div>
+        <button type="button" class="market-row" id="pickUp" aria-pressed="true">
+          <span class="outcome-name"><i aria-hidden="true">↗</i><span><b>Up</b><small>Above the starting price</small></span></span>
+          <span class="odds-cell"><strong id="oddsUp">—</strong><i class="odds-meter" aria-hidden="true"><i id="barUp"></i></i></span>
+          <span class="holder-count" id="holdersUp">—</span>
+          <span class="pick-cta" id="selectUp">Selected ✓</span>
+        </button>
+        <button type="button" class="market-row" id="pickDown" aria-pressed="false">
+          <span class="outcome-name"><i aria-hidden="true">↘</i><span><b>Down</b><small>At or below the start</small></span></span>
+          <span class="odds-cell"><strong id="oddsDown">—</strong><i class="odds-meter" aria-hidden="true"><i id="barDown"></i></i></span>
+          <span class="holder-count" id="holdersDown">—</span>
+          <span class="pick-cta" id="selectDown">Pick Down</span>
+        </button>
+      </section>
       <section class="layout">
         <article class="chartcard">
           <div class="charthead">
@@ -54,21 +72,36 @@
               <span id="clockTitle">Time left</span><b id="clock">05:00</b>
             </div>
           </div>
-          <div class="plot" id="plot">
-            <svg
-              id="graph"
-              role="img"
-              aria-label="Bitcoin price during the historical replay"
-              viewBox="0 0 720 255"
-              preserveAspectRatio="none"
-            ></svg>
-            <div id="lobbyArt" class="lobbyArt">
-              <div class="coin" aria-hidden="true"><span>₿</span></div>
-              <p>Waiting for the host to start</p>
+          <div class="market-view">
+            <div class="chart-main">
+              <div class="plot" id="plot">
+                <svg
+                  id="graph"
+                  role="img"
+                  aria-label="Bitcoin price during the historical replay"
+                  viewBox="0 0 720 255"
+                  preserveAspectRatio="none"
+                ></svg>
+                <div id="lobbyArt" class="lobbyArt">
+                  <div class="coin" aria-hidden="true"><span>₿</span></div>
+                  <p>Waiting for the host to start</p>
+                </div>
+              </div>
+              <div class="chartfoot">
+                <span id="openLabel">Start</span><span id="baselineLabel" hidden></span><span id="endLabel">Now</span>
+              </div>
             </div>
-          </div>
-          <div class="chartfoot">
-            <span id="openLabel">Start</span><span id="baselineLabel" hidden></span><span id="endLabel">Now</span>
+            <section class="trade-feed" id="tradeTape" aria-labelledby="tradeFeedHeading" hidden>
+              <div class="feed-head">
+                <h3 id="tradeFeedHeading"><i aria-hidden="true"></i> Room trades</h3>
+                <button type="button" id="toggleTradeFeed" aria-controls="fillRows"
+                  aria-label="Pause room trades" title="Pause room trades">Ⅱ</button>
+              </div>
+              <div class="feed-stage">
+                <p id="feedEmpty">Waiting for trades…</p>
+                <ol id="fillRows" aria-label="Recent trades in practice dollars" aria-live="off"></ol>
+              </div>
+            </section>
           </div>
         </article>
         <aside class="ticket">
@@ -97,13 +130,6 @@
             <b id="wallet">—</b>
             <div id="positionReturn" hidden><span>Est. gain / loss</span> <b id="gain">—</b></div>
           </div>
-          <fieldset class="prediction" id="prediction" hidden>
-            <legend>Where will Bitcoin finish?</legend>
-            <div class="pick-row">
-              <button type="button" id="pickUp" aria-pressed="true"><span aria-hidden="true">↗</span> Above the start</button>
-              <button type="button" id="pickDown" aria-pressed="false"><span aria-hidden="true">↘</span> At or below</button>
-            </div>
-          </fieldset>
           <figure class="ticket-tape" id="ticketTape" hidden>
             <figcaption>
               <h3 id="tapeHeading">Cost of one share</h3>
@@ -116,6 +142,7 @@
             </div>
             <small id="tapeRange" class="tape-range"></small>
           </figure>
+          <div id="mobileTrades"></div>
           <div id="tradePanel" hidden>
             <fieldset class="sizing" id="sizing">
               <legend>How much of your cash or shares?</legend>
@@ -134,8 +161,8 @@
               </select>
             </div>
             <div class="trade-actions">
-              <button id="buy"><b>Place bet</b><small id="buyPrice"></small></button>
-              <button id="sell"><b>Cash out</b><small id="sellPrice"></small></button>
+              <button id="buy"><b id="buyTitle">Buy Up</b><small id="buyPrice"></small></button>
+              <button id="sell"><b id="sellTitle">Sell Up</b><small id="sellPrice"></small></button>
             </div>
             <div class="position-line">
               <span id="owned"></span>
@@ -146,7 +173,8 @@
           <p id="notice" role="status"></p>
           <details class="marketRules">
             <summary>How the money works</summary>
-            <p>Pick where Bitcoin will finish compared with its starting price. Each correct share pays $10,000 in practice cash at the end. A wrong share pays $0. A tie goes to “At or below.”</p>
+            <p>Market chance comes from the room’s prices. Team counts include classmates who currently own shares on that side. A team can hold both sides. NPCs trade but do not count as class teams.</p>
+            <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Each winning share pays $10,000 in practice cash. A losing share pays $0. Sell shares you own before the finish to take the cash shown.</p>
             <p>The small chart tracks what one share of your pick costs in this room. For example, if you pay $4,000 for one share and cash it out for $6,000, you earn $2,000.</p>
             <p id="sizeInfo">Choose a percentage of your available cash to place a bet, or the same percentage of your shares to cash out. Orders use whole shares. “Cash out everything” sells both predictions in one step.</p>
             <p>You can spend only the practice cash in your account. The most you can lose on a bet is what you paid.</p>

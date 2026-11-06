@@ -64,6 +64,14 @@ class HttpTest(unittest.TestCase):
         self.assertEqual((code, state["me"]["up"]), (200, 2))
         self.assertEqual(self.request("/api/trade", order, player)[2]["me"], state["me"])
         self.assertEqual(self.request("/api/trade", dict(order, quantity=1), player)[0], 409)
+        # A student watching without a seat gets the same confirmed fill once.
+        observer = self.request("/api/state", client="192.168.1.6")[2]
+        self.assertIsNone(observer["me"])
+        self.assertEqual(observer["support"], {"up": 1, "down": 0})
+        self.assertEqual(observer["tradeFeed"], state["tradeFeed"])
+        self.assertEqual(len(observer["tradeFeed"]), 1)
+        self.assertEqual(observer["tradeFeed"][0]["name"], "Eli")
+        self.assertEqual(observer["tradeFeed"][0]["action"], "buy")
         self.now = 300
         self.assertEqual(self.request("/api/state", cookie=player)[2]["phase"], "settled")
         self.assertEqual(self.request("/api/host", {"action":"network"}, host)[2]["phase"], "network")
@@ -99,6 +107,10 @@ class HttpTest(unittest.TestCase):
         self.assertEqual((closed["me"]["up"], closed["me"]["down"]), (0, 0))
         self.assertAlmostEqual(closed["me"]["cash"], 100, places=3)
         self.assertEqual(self.request("/api/trade", body, player)[2]["me"], closed["me"])
+        observer = self.request("/api/state")[2]
+        self.assertEqual(observer["support"], {"up": 0, "down": 0})
+        self.assertEqual([fill["action"] for fill in observer["tradeFeed"]], ["buy", "buy", "sellAll"])
+        self.assertEqual(observer["tradeFeed"][-1]["total"], exit_quote["total"])
 
 
 if __name__ == "__main__":
