@@ -608,3 +608,15 @@ dialog::backdrop {
 .prompts + a {
   font-size: 14px;
 }
+#launcher p {
+  margin-top: 16px;
+}
+#dialogText input {
+  display: block;
+  width: 100%;
+  margin: 14px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: white;
+}

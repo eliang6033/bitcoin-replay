@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#201b30" />
     <title>Bitcoin Replay · Classroom market</title>
-    <link rel="stylesheet" href="/style.css" />
-    <script defer src="/app.js"></script>
+    <link rel="stylesheet" href="./style.css" />
+    <!-- Online room scripts -->
+    <script defer src="./app.js"></script>
   </head>
   <body>
     <header>
       <div class="nav">
-        <a class="wordmark" href="/" aria-label="Bitcoin Replay home"
+        <a class="wordmark" href="./" aria-label="Bitcoin Replay home"
           ><i aria-hidden="true">₿</i> Bitcoin Replay</a
         ><button id="guide" class="navlink">How to play <span>↗</span></button>
       </div>
@@ -66,6 +67,10 @@
           <div class="ticketTop">
             <h2 id="ticketHeading">Your position</h2>
             <span id="seat" class="seat"></span>
+          </div>
+          <div id="launcher" hidden>
+            <p id="launchText"></p>
+            <button class="wide primary" id="launchButton">Create a room</button>
           </div>
           <form id="joinForm">
             <label for="team">Choose a team name</label

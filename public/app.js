@@ -16,6 +16,8 @@ let state,
   busy = false,
   sequence = 0,
   applied = 0;
+const online = document.documentElement.dataset.hosting === "pages";
+let session;
 const hostActions = {
   lobby: ["Start 5-minute replay", "start"],
   settled: ["Replay the network", "network"],
@@ -297,6 +299,15 @@ function paint(s) {
 }
 async function call(path, body) {
   const id = ++sequence;
+  const data = online ? await session.request(path, body) : await localRequest(path, body);
+  if (id > applied) {
+    applied = id;
+    paint(data);
+  }
+  show("status", false);
+  return data;
+}
+async function localRequest(path, body) {
   const opts = body
     ? {
         method: "POST",
@@ -311,11 +322,6 @@ async function call(path, body) {
   });
   const data = await res.json();
   if (!res.ok) throw Error(data.error || "Room unavailable.");
-  if (id > applied) {
-    applied = id;
-    paint(data);
-  }
-  show("status", false);
   return data;
 }
 async function submit(path, body) {
@@ -346,8 +352,8 @@ async function refresh() {
   if (!busy)
     try {
       await call("state");
-    } catch {
-      label("status", "Connection interrupted. Reconnecting to the classroom…");
+    } catch (error) {
+      label("status", online ? error.message : "Connection interrupted. Reconnecting to the classroom…");
       show("status", true);
     }
   setTimeout(refresh, 1000);
@@ -383,9 +389,24 @@ function modal(title, paragraphs, code) {
     box.append(p);
   }
   if (code) {
-    const c = document.createElement("code");
-    c.textContent = code;
-    box.append(c);
+    const input = document.createElement("input");
+    input.value = code;
+    input.readOnly = true;
+    input.setAttribute("aria-label", "Student invite link");
+    const copy = document.createElement("button");
+    copy.className = "primary";
+    copy.textContent = "Copy invite link";
+    copy.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(code);
+        copy.textContent = "Copied";
+      } catch {
+        input.focus();
+        input.select();
+        copy.textContent = "Select and copy the link";
+      }
+    };
+    box.append(input, copy);
   }
   $("dialog").showModal();
 }
@@ -399,11 +420,57 @@ $("invite").onclick = () =>
   modal(
     "Invite the class",
     [
-      state.joinUrl.includes("127.0.0.1")
+      online
+        ? "Send this link to your friend or class. Keep this host tab open while everyone plays."
+        : state.joinUrl.includes("127.0.0.1")
         ? "This preview is open on this computer. To invite phones, restart the classroom server in LAN mode as described in the project guide."
         : "Students on the same network can open this address on a phone or laptop and choose a team name.",
     ],
     state.joinUrl,
   );
 $("close").onclick = () => $("dialog").close();
-refresh();
+
+function startOnline() {
+  const params = new URLSearchParams(location.search);
+  const invited = params.get("room");
+  const hostId = window.BitcoinClassroom?.currentHostId();
+  const isReturningHost = hostId && (!params.has("host") || params.get("host") === hostId);
+  show("joinForm", false);
+  show("ranks", false);
+  show("launcher", true);
+  label("price", "Market lobby");
+  label("priceDelta", "Four historical hours");
+  label("ticketHeading", invited ? "Join this room" : "Play with friends");
+  label("launchText", invited
+    ? "Connecting to the host. You’ll choose a team name when you arrive."
+    : "Create one room and invite everyone with the same link. Playing alone? You can join your own round.");
+  const button = $("launchButton");
+  const buttonName = invited ? "Connect to room" : isReturningHost ? "Reopen your room" : "Create a room";
+  label("launchButton", buttonName);
+  const connect = async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    label("launchButton", invited ? "Joining room…" : "Opening room…");
+    show("status", false);
+    let connected;
+    try {
+      if (!window.BitcoinClassroom) throw Error("The room software could not load. Reload this page to try again.");
+      connected = invited ? await BitcoinClassroom.join(invited) : await BitcoinClassroom.create();
+      session = connected;
+      await call("state");
+      show("launcher", false);
+      show("ranks", true);
+      refresh();
+    } catch (error) {
+      if (connected) BitcoinClassroom.dispose();
+      label("status", error.message || "Could not connect. Check the host tab and try again.");
+      show("status", true);
+      label("launchButton", buttonName);
+      button.disabled = false;
+    }
+  };
+  button.onclick = connect;
+  if (invited || (params.has("host") && isReturningHost)) connect();
+}
+if (online) startOnline();
+else refresh();
