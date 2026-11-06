@@ -15,10 +15,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent / "public"
-ASSETS = {"index.html", "app.js", "style.css"}
+ASSETS = {"index.html", "app.js", "style.css", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
 LIQUIDITY = 40
+MAX_ORDER = 10
 NETWORK_DURATION = 60
 
 
@@ -100,7 +101,7 @@ class Room:
         # LMSR cost difference, evaluated without exponentiating outstanding quantities.
         return PAYOUT * LIQUIDITY * math.log1p(self.probability(side) * math.expm1(delta / LIQUIDITY))
 
-    def trade(self, key, side, action, quantity, order_id=None):
+    def trade(self, key, side, action, quantity, order_id=None, quote_limit=None):
         self.update()
         if order_id is not None:
             if not isinstance(order_id, str) or not 1 <= len(order_id) <= 64:
@@ -116,11 +117,17 @@ class Room:
             raise GameError("Join the room first.", 403)
         if side not in ("up", "down") or action not in ("buy", "sell"):
             raise GameError("Choose Buy or Sell and a side.")
-        if type(quantity) is not int or not 1 <= quantity <= 10:
+        if type(quantity) is not int or not 1 <= quantity <= MAX_ORDER:
             raise GameError("Choose 1 to 10 tickets per order.")
         player = self.players[key]
         delta = quantity if action == "buy" else -quantity
         cost = self.quote(side, delta)
+        if quote_limit is not None:
+            if type(quote_limit) not in (int, float) or not 0 <= quote_limit <= MAX_ORDER * PAYOUT:
+                raise GameError("Invalid total quote.")
+            total = money(abs(cost))
+            if (action == "buy" and total > quote_limit) or (action == "sell" and total < quote_limit):
+                raise GameError("Another team traded first. Check the new total and try again.", 409)
         if delta < 0 and player[side] < quantity:
             raise GameError("You can only sell tickets you own.", 409)
         if delta > 0 and cost > player["cash"] + 1e-9:
@@ -163,13 +170,17 @@ class Room:
             net_elapsed = NETWORK_DURATION
         blocks = [] if self.phase not in ("network", "discussion") else [
             b for b in self.blocks if b["minute"] <= net_elapsed * 240 / NETWORK_DURATION]
+        quote_totals = {
+            action + side.title(): [money(abs(self.quote(side, sign * n))) for n in range(1, MAX_ORDER + 1)]
+            for side in ("up", "down") for action, sign in (("buy", 1), ("sell", -1))
+        }
         return {
             "phase": self.phase, "roundId": self.round_id, "host": host, "joinUrl": join_url,
             "remaining": math.ceil(self.duration - elapsed), "elapsed": elapsed,
             "duration": self.duration, "prices": visible, "startPrice": self.prices[0]["price"],
             "lastPrice": visible[-1]["price"], "upPrice": money(up), "downPrice": money(PAYOUT - up),
-            "quotes": {action + side.title(): money(abs(self.quote(side, delta)))
-                       for side in ("up", "down") for action, delta in (("buy", 1), ("sell", -1))},
+            "quotes": {key: totals[0] for key, totals in quote_totals.items()},
+            "quoteTotals": quote_totals,
             "players": len(self.players), "me": None if player is None else {
                 **player, "cash": money(player["cash"]), "points": balance(player)},
             "rankings": sorted([{"name": p["name"], "points": balance(p)} for p in self.players.values()],
@@ -263,7 +274,8 @@ class Handler(BaseHTTPRequestHandler):
                     key = room.join(payload.get("name"), key)
                     headers["Set-Cookie"] = self.cookie("br_player", key)
                 elif path == "/api/trade":
-                    room.trade(key, payload.get("side"), payload.get("action"), payload.get("quantity", 1), payload.get("orderId"))
+                    room.trade(key, payload.get("side"), payload.get("action"), payload.get("quantity", 1),
+                               payload.get("orderId"), payload.get("quoteLimit"))
                 elif path == "/api/host":
                     if not host:
                         raise GameError("Only the host can use this control.", 403)

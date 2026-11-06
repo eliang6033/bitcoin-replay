@@ -11,6 +11,25 @@
   const connectError = "Could not reach the host. Keep the host tab open and try again. If your network blocks peer connections, try another network.";
   let activePeer;
   let reconnectTimer;
+  let releaseHostLock;
+
+  // Some privacy settings block browser storage. Keep the current tab playable
+  // even when its identity or its latest round cannot be saved for later.
+  function browserStorage(name) {
+    const memory = new Map();
+    return {
+      getItem(key) {
+        if (memory.has(key)) return memory.get(key);
+        try { return globalThis[name].getItem(key); } catch { return null; }
+      },
+      setItem(key, value) {
+        try { globalThis[name].setItem(key, value); memory.delete(key); }
+        catch { memory.set(key, value); }
+      },
+    };
+  }
+  const tabStorage = browserStorage("sessionStorage");
+  const profileStorage = browserStorage("localStorage");
 
   const hex = bytes => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, "0")).join("");
   const fromHex = text => Uint8Array.from(text.match(/../g), pair => parseInt(pair, 16));
@@ -18,14 +37,33 @@
   const peerId = id => "bitcoin-replay-" + id;
   const snapshotKey = id => prefix + id + ".snapshot";
 
+  function hostRecord() {
+    const previous = JSON.parse(tabStorage.getItem(hostKey) || "null");
+    const requested = new URL(location.href).searchParams.get("host");
+    if (requested && idFormat.test(requested) && previous?.id !== requested) {
+      const saved = profileStorage.getItem(hostKey + "." + requested);
+      if (saved) return JSON.parse(saved);
+    }
+    if (previous) return previous;
+    const lastId = profileStorage.getItem(hostKey);
+    return lastId ? JSON.parse(profileStorage.getItem(hostKey + "." + lastId)) : null;
+  }
+
   function currentHostId() {
-    return JSON.parse(sessionStorage.getItem(hostKey) || "null")?.id || null;
+    return hostRecord()?.id || null;
+  }
+
+  function saveHostRecord(record) {
+    const encoded = JSON.stringify(record);
+    profileStorage.setItem(hostKey + "." + record.id, encoded);
+    profileStorage.setItem(hostKey, record.id);
+    tabStorage.setItem(hostKey, encoded);
   }
 
   function playerKey(id) {
     const key = prefix + id + ".player";
-    const token = sessionStorage.getItem(key) || randomKey();
-    sessionStorage.setItem(key, token);
+    const token = tabStorage.getItem(key) || randomKey();
+    tabStorage.setItem(key, token);
     return token;
   }
 
@@ -45,21 +83,22 @@
   }
 
   async function hostIdentity() {
-    const existing = sessionStorage.getItem(hostKey);
-    if (existing) {
-      const record = JSON.parse(existing);
+    const record = hostRecord();
+    if (record) {
       const privateKey = await crypto.subtle.importKey("jwk", record.jwk, algorithm, false, ["sign"]);
+      // Migrate existing session-only hosts without changing their invite URLs.
+      saveHostRecord(record);
       return { ...record, privateKey };
     }
     const pair = await crypto.subtle.generateKey(algorithm, true, ["verify", "sign"]);
-    const record = {
+    const newRecord = {
       id: await keyId(pair.publicKey),
       publicKey: hex(await crypto.subtle.exportKey("raw", pair.publicKey)),
       jwk: await crypto.subtle.exportKey("jwk", pair.privateKey),
       token: randomKey(),
     };
-    sessionStorage.setItem(hostKey, JSON.stringify(record));
-    return { ...record, privateKey: pair.privateKey };
+    saveHostRecord(newRecord);
+    return { ...newRecord, privateKey: pair.privateKey };
   }
 
   function dispose() {
@@ -67,6 +106,10 @@
     const peer = activePeer;
     activePeer = null;
     if (peer && !peer.destroyed) peer.destroy();
+    if (releaseHostLock) {
+      releaseHostLock();
+      releaseHostLock = null;
+    }
   }
 
   function openPeer(id, token) {
@@ -100,11 +143,28 @@
   }
 
   async function create() {
+    const locks = globalThis.navigator?.locks;
+    if (!locks) return openHost();
+    // Claim the host role before creating the first identity in this browser.
+    // The lock also prevents a second tab from presenting a conflicting round.
+    return new Promise((resolve, reject) => {
+      locks.request(hostKey, { ifAvailable: true }, async lock => {
+        if (!lock) throw Error("Your host room is already open in another tab. Use that tab to invite players.");
+        const session = await openHost();
+        await new Promise(release => {
+          releaseHostLock = release;
+          resolve(session);
+        });
+      }).catch(reject);
+    });
+  }
+
+  async function openHost() {
     const owner = await hostIdentity();
     const joinUrl = address("room", owner.id);
     const archive = await fetch("./history.json", { signal: AbortSignal.timeout(12000) });
     if (!archive.ok) throw Error("The historical archive could not be loaded.");
-    const saved = JSON.parse(sessionStorage.getItem(snapshotKey(owner.id)) || "null");
+    const saved = JSON.parse(tabStorage.getItem(snapshotKey(owner.id)) || "null");
     const engine = new BitcoinReplayRoom(await archive.json(), { saved });
     const hostPlayer = playerKey(owner.id);
     function run(path, body, token, isHost, expectedRound) {
@@ -112,7 +172,7 @@
         throw Error("The class started a new round. Please check your position.");
       }
       const state = engine.request(path, body, token, isHost, joinUrl);
-      if (path !== "state") sessionStorage.setItem(snapshotKey(owner.id), JSON.stringify(engine.save()));
+      if (path !== "state") tabStorage.setItem(snapshotKey(owner.id), JSON.stringify(engine.save()));
       return state;
     }
     const { peer, ready } = openPeer(owner.id, owner.token);

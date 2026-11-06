@@ -3,6 +3,7 @@
   "use strict";
   const PAYOUT = 10;
   const LIQUIDITY = 40;
+  const MAX_ORDER = 10;
   const NETWORK_SECONDS = 60;
   const HISTORICAL_MINUTES = 240;
 
@@ -108,7 +109,7 @@
       this.players.set(key, { name, cash: 100, up: 0, down: 0 });
     }
 
-    trade(key, { side, action, quantity = 1, orderId }) {
+    trade(key, { side, action, quantity = 1, orderId, quoteLimit }) {
       const player = this.players.get(key);
       if (!player) error("Join the room first.", 403);
       let reference;
@@ -129,11 +130,18 @@
       if (!["up", "down"].includes(side) || !["buy", "sell"].includes(action)) {
         error("Choose Buy or Sell and a side.");
       }
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ORDER) {
         error("Choose 1 to 10 tickets per order.");
       }
       const delta = action === "buy" ? quantity : -quantity;
       const cost = this.quote(side, delta);
+      if (quoteLimit != null) {
+        if (!Number.isFinite(quoteLimit) || quoteLimit < 0 || quoteLimit > MAX_ORDER * PAYOUT)
+          error("Invalid total quote.");
+        const total = money(Math.abs(cost));
+        if (action === "buy" ? total > quoteLimit : total < quoteLimit)
+          error("Another team traded first. Check the new total and try again.", 409);
+      }
       if (delta < 0 && player[side] < quantity) error("You can only sell tickets you own.", 409);
       if (delta > 0 && cost > player.cash + 1e-9)
         error("You need more points for this trade.", 409);
@@ -210,6 +218,15 @@
             (b) => b.minute <= (networkElapsed * HISTORICAL_MINUTES) / NETWORK_SECONDS,
           )
         : [];
+      const quoteTotals = {};
+      for (const side of ["up", "down"]) {
+        const suffix = side === "up" ? "Up" : "Down";
+        for (const [action, sign] of [["buy", 1], ["sell", -1]]) {
+          quoteTotals[action + suffix] = Array.from({ length: MAX_ORDER }, (_, i) =>
+            money(Math.abs(this.quote(side, sign * (i + 1)))),
+          );
+        }
+      }
       return {
         phase: this.phase,
         roundId: this.roundId,
@@ -223,12 +240,8 @@
         lastPrice: prices[prices.length - 1].price,
         upPrice: money(upPrice),
         downPrice: money(PAYOUT - upPrice),
-        quotes: {
-          buyUp: money(this.quote("up", 1)),
-          buyDown: money(this.quote("down", 1)),
-          sellUp: money(-this.quote("up", -1)),
-          sellDown: money(-this.quote("down", -1)),
-        },
+        quotes: Object.fromEntries(Object.entries(quoteTotals).map(([key, totals]) => [key, totals[0]])),
+        quoteTotals,
         players: this.players.size,
         me: player ? { ...player, cash: money(player.cash), points: points(player) } : null,
         rankings: Array.from(this.players.values(), (p) => ({

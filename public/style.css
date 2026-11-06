@@ -611,6 +611,36 @@ dialog::backdrop {
 #launcher p {
   margin-top: 16px;
 }
+.quantity-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.quantity-control label {
+  margin: 0;
+}
+.quantity-control select {
+  min-width: 76px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+.room-qr {
+  display: block;
+  margin: 12px auto;
+  width: min(100%, 300px);
+  height: auto;
+  image-rendering: pixelated;
+}
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 #dialogText input {
   display: block;
   width: 100%;

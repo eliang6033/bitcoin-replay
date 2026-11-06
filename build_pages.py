@@ -2,6 +2,8 @@
 
 from pathlib import Path
 from shutil import copytree
+from hashlib import sha256
+import re
 
 
 def build():
@@ -19,7 +21,14 @@ def build():
         raise ValueError("Missing online room script insertion point")
     markup = markup.replace('<html lang="en">', '<html lang="en" data-hosting="pages">')
     tags = '\n    '.join(f'<script defer src="./{asset}"></script>' for asset in scripts)
-    index.write_text(markup.replace(marker, tags))
+    markup = markup.replace(marker, tags)
+    # A phone that visited an earlier release must load scripts matching its HTML.
+    def versioned(match):
+        asset = match.group(1)
+        digest = sha256((output / asset).read_bytes()).hexdigest()[:12]
+        return f'"./{asset}?v={digest}"'
+
+    index.write_text(re.sub(r'"\./([\w./-]+\.(?:js|css))"', versioned, markup))
     (output / ".nojekyll").touch()
 
 

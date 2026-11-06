@@ -46,14 +46,24 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
       network.delete(this.id);
     }
   }
-  function tab() {
-    const values = new Map();
+  const local = new Map();
+  const held = new Set();
+  const locks = {
+    async request(key, options, callback) {
+      assert.equal(options.ifAvailable, true);
+      if (held.has(key)) return callback(null);
+      held.add(key);
+      try { return await callback({ name: key }); }
+      finally { held.delete(key); }
+    },
+  };
+  function tab(session = new Map(), url = "https://example.github.io/bitcoin-replay/") {
+    const storage = values => ({ getItem: k => values.get(k) || null, setItem: (k, v) => values.set(k, v) });
     const context = vm.createContext({
       crypto: webcrypto, Peer, URL, AbortSignal, setTimeout, clearTimeout, addEventListener() {},
       fetch: async () => ({ ok: true, json: async () => JSON.parse(source("history.json")) }),
-      location: { href: "https://example.github.io/bitcoin-replay/" },
-      history: { replaceState() {} },
-      sessionStorage: { getItem: k => values.get(k) || null, setItem: (k, v) => values.set(k, v) },
+      location: { href: url }, history: { replaceState() {} }, navigator: { locks },
+      localStorage: storage(local), sessionStorage: storage(session),
     });
     vm.runInContext(source("room-engine.js"), context);
     vm.runInContext(source("classroom.js"), context);
@@ -61,6 +71,8 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   }
   const presenting = tab(), playing = tab(), watching = tab();
   let host = await presenting.create();
+  const originalInvite = host.joinUrl;
+  await assert.rejects(tab().create(), /already open in another tab/);
   const student = await playing.join(host.id);
   const spectator = await watching.join(host.id);
   assert.equal(new URL(host.joinUrl).searchParams.get("room"), host.id);
@@ -74,6 +86,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.equal(traded.me.down, 1);
   assert.equal(traded.reveal, null);
   presenting.dispose();
+  local.clear(); // Existing host tabs initially have the prior release's session-only record.
   await assert.rejects(student.request("trade", { action: "buy", side: "up" }), /Reconnect/);
   host = await presenting.create();
   assert.equal(host.id, presenting.currentHostId());
@@ -82,4 +95,22 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.equal(restored.me.up, 0);
   assert.equal(restored.phase, "trading");
   presenting.dispose(); playing.dispose(); watching.dispose();
+  await new Promise(resolve => setImmediate(resolve));
+
+  // Closing the presentation and reopening in a fresh tab preserves the invite,
+  // but starts a clean room. Reopening the saved host URL also works.
+  const reopened = tab();
+  assert.equal(reopened.currentHostId(), host.id);
+  const newRound = await reopened.create();
+  assert.equal(newRound.joinUrl, originalInvite);
+  assert.equal((await newRound.request("state")).phase, "lobby");
+  assert.equal((await newRound.request("state")).players, 0);
+  const guest = tab();
+  const fromOldQR = await guest.join(new URL(originalInvite).searchParams.get("room"));
+  assert.equal((await fromOldQR.request("join", { name: "New class" })).players, 1);
+  reopened.dispose(); guest.dispose();
+  await new Promise(resolve => setImmediate(resolve));
+  const bookmarked = tab(new Map(), "https://example.github.io/bitcoin-replay/?host=" + host.id);
+  assert.equal((await bookmarked.create()).joinUrl, originalInvite);
+  bookmarked.dispose();
 });

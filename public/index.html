@@ -7,6 +7,8 @@
     <title>Bitcoin Replay · Classroom market</title>
     <link rel="stylesheet" href="./style.css" />
     <!-- Online room scripts -->
+    <script defer src="./vendor/qrcode.js"></script>
+    <script defer src="./room-qr.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -31,7 +33,7 @@
         <div><strong>Host controls</strong> <span id="hostHint"></span></div>
         <div class="hostBtns">
           <button id="restart" hidden>Reset practice round</button
-          ><button id="invite">Invite class</button><button id="hostAction" class="ink"></button>
+          ><button id="invite">Class QR code</button><button id="hostAction" class="ink"></button>
         </div>
       </section>
       <section class="layout">
@@ -92,15 +94,23 @@
                 <button id="buy" aria-pressed="true">Buy</button
                 ><button id="sell" aria-pressed="false">Sell</button>
               </div>
+              <div class="quantity-control">
+                <label for="quantity">Tickets per order</label>
+                <select id="quantity">
+                  <option>1</option><option>2</option><option>3</option><option>4</option>
+                  <option>5</option><option>6</option><option>7</option><option>8</option>
+                  <option>9</option><option>10</option>
+                </select>
+              </div>
               <div class="order" data-side="up">
-                <div><b>↗ UP</b><small id="upHeld">0 held</small></div>
+                <div><b>↗ UP</b><small id="upUnit"></small><small id="upHeld">0 held</small></div>
                 <button id="upOrder">Buy 1</button>
               </div>
               <div class="order" data-side="down">
-                <div><b>↘ DOWN</b><small id="downHeld">0 held</small></div>
+                <div><b>↘ DOWN</b><small id="downUnit"></small><small id="downHeld">0 held</small></div>
                 <button id="downOrder">Buy 1</button>
               </div>
-              <p class="fine" id="orderNote">Each order is one ticket.</p>
+              <p class="fine" id="orderNote">Ticket prices move as teams trade.</p>
             </div>
           </div>
           <p id="notice" role="status"></p>

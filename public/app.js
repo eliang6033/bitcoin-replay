@@ -133,19 +133,38 @@ function draw(s, net) {
   }
   svg.replaceChildren(fragment);
 }
+const quantityControl = $("quantity");
+const ticketLabel = (quantity) => quantity === 1 ? "ticket" : "tickets";
+function selectedQuantity() {
+  return Number(quantityControl?.value || 1);
+}
+function orderQuote(side, quantity) {
+  const key = action + (side === "up" ? "Up" : "Down");
+  // A host tab opened before quantity selection shipped still provides single-ticket quotes.
+  return state.quoteTotals?.[key]?.[quantity - 1] ?? state.quotes[key];
+}
 function setOrders() {
   if (!state) return;
   const s = state;
   ["buy", "sell"].forEach((a) => $(a).setAttribute("aria-pressed", a === action));
+  if (quantityControl) {
+    if (!s.quoteTotals) quantityControl.value = "1";
+    quantityControl.disabled = busy || !s.quoteTotals;
+  }
+  const quantity = selectedQuantity();
+  const verb = action === "buy" ? "Buy" : "Sell";
   for (const side of ["up", "down"]) {
-    const quote = s.quotes[action + side[0].toUpperCase() + side.slice(1)];
-    label(side + "Order", (action === "buy" ? "Buy 1" : "Sell 1") + " · " + pts(quote) + " pts");
+    const quote = orderQuote(side, quantity);
+    label(side + "Order", verb + " " + quantity + " · " + pts(quote) + " pts total");
+    $(side + "Order").setAttribute("aria-label",
+      `${verb} ${quantity} ${side.toUpperCase()} ${ticketLabel(quantity)} for ${pts(quote)} points total`);
+    if ($(side + "Unit")) label(side + "Unit", "1 ticket · " + pts(orderQuote(side, 1)) + " pts");
     label(side + "Held", (s.me?.[side] ?? 0) + " held");
     $(side + "Order").disabled =
       busy ||
       s.phase !== "trading" ||
       !s.me ||
-      (action === "buy" ? quote > s.me.cash : s.me[side] < 1);
+      (action === "buy" ? quote > s.me.cash : s.me[side] < quantity);
   }
 }
 function paint(s) {
@@ -156,6 +175,7 @@ function paint(s) {
     inGame = s.phase === "trading";
   if (old && old.roundId !== s.roundId) {
     action = "buy";
+    if (quantityControl) quantityControl.value = "1";
     label("notice", "");
     $("ranks").open = false;
   }
@@ -236,9 +256,11 @@ function paint(s) {
   label("ticketHeading", done ? "Your result" : "Your position");
   label(
     "orderNote",
-    s.phase === "lobby"
-      ? "Orders open when the host starts the clock."
-      : "Each order is one ticket. Quotes move as classmates trade.",
+    !s.quoteTotals
+      ? "This room supports one ticket per order. Ask the host to refresh for larger orders."
+      : s.phase === "lobby"
+        ? "Orders open when the host starts the clock."
+        : "All teams see the same quotes. Buying or selling tickets moves the price.",
   );
   setOrders();
   show("result", done);
@@ -334,9 +356,7 @@ async function submit(path, body) {
       "notice",
       path === "trade"
         ? (body.action === "buy" ? "Bought" : "Sold") +
-            " one " +
-            body.side.toUpperCase() +
-            " ticket."
+            ` ${body.quantity} ${body.side.toUpperCase()} ${ticketLabel(body.quantity)}.`
         : "",
     );
   } catch (e) {
@@ -367,8 +387,13 @@ for (const a of ["buy", "sell"])
     action = a;
     setOrders();
   };
-for (const side of ["up", "down"])
-  $(side + "Order").onclick = () => submit("trade", { side, action, quantity: 1 });
+if (quantityControl) quantityControl.onchange = setOrders;
+for (const side of ["up", "down"]) {
+  $(side + "Order").onclick = () => {
+    const quantity = selectedQuantity();
+    submit("trade", { side, action, quantity, quoteLimit: orderQuote(side, quantity) });
+  };
+}
 $("restart").onclick = () => {
   if (confirm("End this practice round and clear team balances?"))
     submit("host", { action: "reset" });
@@ -389,12 +414,22 @@ function modal(title, paragraphs, code) {
     box.append(p);
   }
   if (code) {
+    const localPreview = ["127.0.0.1", "localhost", "[::1]"].includes(new URL(code).hostname);
+    let download;
+    if (!localPreview) {
+      const qr = BitcoinRoomQR.create(code);
+      qr.className = "room-qr";
+      box.append(qr);
+      download = document.createElement("button");
+      download.className = "primary";
+      download.textContent = "Download QR code";
+      download.onclick = () => BitcoinRoomQR.download(qr);
+    }
     const input = document.createElement("input");
     input.value = code;
     input.readOnly = true;
     input.setAttribute("aria-label", "Student invite link");
     const copy = document.createElement("button");
-    copy.className = "primary";
     copy.textContent = "Copy invite link";
     copy.onclick = async () => {
       try {
@@ -406,7 +441,11 @@ function modal(title, paragraphs, code) {
         copy.textContent = "Select and copy the link";
       }
     };
-    box.append(input, copy);
+    const actions = document.createElement("div");
+    actions.className = "invite-actions";
+    if (download) actions.append(download);
+    actions.append(copy);
+    box.append(input, actions);
   }
   $("dialog").showModal();
 }
@@ -418,10 +457,10 @@ $("guide").onclick = () =>
   ]);
 $("invite").onclick = () =>
   modal(
-    "Invite the class",
+    "Join this room",
     [
       online
-        ? "Send this link to your friend or class. Keep this host tab open while everyone plays."
+        ? "Everyone scans the same code to join. Keep this host tab open during the game."
         : state.joinUrl.includes("127.0.0.1")
         ? "This preview is open on this computer. To invite phones, restart the classroom server in LAN mode as described in the project guide."
         : "Students on the same network can open this address on a phone or laptop and choose a team name.",
