@@ -8,9 +8,9 @@ Open [Bitcoin Replay](https://eliang6033.github.io/bitcoin-replay/) and select *
 
 Keep the host tab open and the device awake. On GitHub Pages the host's browser manages the shared market. PeerJS helps players connect to it over WebRTC. Students can use different networks if their browsers can establish a connection. If a participant has trouble connecting, check that the host tab is open and try a different network. For a classroom with restricted connections, the local network option below uses a shared Python server.
 
-Each new round includes **20 simulated traders**. Together they place roughly one small order per second, with faster bursts after sharp moves in the Bitcoin prices already shown. Students trade in the same market. The count of teams in the lobby includes classmates only.
+Each new round includes **20 simulated traders**. They look at how far Bitcoin has moved from its starting price, its recent direction and the time left. They trade faster when the price moves sharply. They see the same historical prices as the class. A student's purchase or sale changes the price everyone can trade at.
 
-The chart beside the order controls tracks **the cost in points to buy one UP ticket**. Its opening segment shows simulated pre-game trades. Watch the live quote when deciding whether to buy, sell, or hold. The separate BTC/USD chart replays the historical exchange price, which determines the winning ticket at the end.
+Read the **Bitcoin price** chart to see whether Bitcoin is above or below its starting price. Choose **Higher** or **Lower** to see what one ticket on that side costs in classroom points. A winning ticket pays 10 points. For example, buying one ticket for 3 points and selling it for 6 earns 3 points without waiting for the final result. These ticket prices come from the game. The Bitcoin prices come from Coinbase.
 
 ## Try the local edition on one computer
 
@@ -26,8 +26,8 @@ Open the **Host** link printed in the terminal. Enter a practice team name, sele
 
 1. Stop the practice server with Control-C and run `python3 server.py --bind 0.0.0.0` on the presenting laptop. If the preview is already using the default port and you want to keep it, add `--port 5190`.
 2. Open the new **Host** link on that laptop. Project the lobby to display the student QR. **Share invite link** also gives the student address. Everyone must be on a network that lets devices reach the laptop. Try the address on a phone before class. If campus Wi-Fi isolates devices, use a shared hotspot or let the class play by table on the projected screen.
-3. Ask students to join with a team nickname. One browser holds one position. Each team starts with 100 points. Choose 1–10 tickets per order, then buy UP or DOWN, sell tickets you hold, or wait. Both the single-ticket quote and the total depend on trades in the room. Each team has its own cash balance and holdings. The separate BTC price follows the recorded exchange data.
-4. Start the clock when the class is ready. Five classroom minutes represent four historical hours. At the closing bell the site reveals the exact UTC window and settles tickets. Each winning ticket pays 10 points. DOWN wins a tie.
+3. Ask students to join with a team nickname. Each team starts with 100 points. Pick Higher or Lower, choose 1–10 tickets, and use the adjacent Buy and Sell buttons. Teams can sell tickets they own or hold them to the end. Both the purchase cost and sale proceeds depend on trades in the room.
+4. Start the clock when the class is ready. Five classroom minutes represent four historical hours. At the closing bell the site reveals the exact UTC window and settles tickets. Each winning ticket pays 10 points. Lower wins a tie.
 5. Select **Replay the network**. Over 60 seconds the website reveals the blocks recorded in those same four historical hours. Then select **Open discussion** and compare proposals for a community living near a mine.
 
 Keep the local server running and the presenting laptop awake. Reloading the page keeps a team in the round in the same browser. Resetting the local room or stopping the Python server clears all balances.

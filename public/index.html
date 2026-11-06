@@ -25,8 +25,7 @@
         <div class="era"><span class="signal"></span><span id="era">Mid-May 2021</span></div>
         <h1 id="headline">Will Bitcoin finish higher?</h1>
         <p id="intro">
-          It’s a volatile week in mid-May 2021. Trade four hours of Bitcoin history in five minutes
-          using classroom points.
+          Four hours of real Bitcoin prices in five minutes. Use classroom points to predict where the price will finish.
         </p>
       </section>
       <section class="hostbar" id="hostbar" hidden>
@@ -48,11 +47,11 @@
         <article class="chartcard">
           <div class="charthead">
             <div>
-              <div class="smalltitle">Historical Bitcoin <span>/ US Dollar</span></div>
-              <strong id="price">—</strong><small id="priceDelta">Opening price</small>
+              <div class="smalltitle"><b id="assetLabel">Bitcoin price</b> <span id="currency">USD</span></div>
+              <strong id="price">—</strong><small id="priceDelta">Historical replay</small>
             </div>
             <div class="timer">
-              <span id="clockTitle">Market clock</span><b id="clock">05:00</b>
+              <span id="clockTitle">Time left</span><b id="clock">05:00</b>
             </div>
           </div>
           <div class="plot" id="plot">
@@ -65,17 +64,16 @@
             ></svg>
             <div id="lobbyArt" class="lobbyArt">
               <div class="coin" aria-hidden="true"><span>₿</span></div>
-              <p>Waiting for the opening bell</p>
+              <p>Waiting for the host to start</p>
             </div>
           </div>
           <div class="chartfoot">
-            <span id="openLabel">Opening bell</span
-            ><span id="axisMiddle">Historical time elapsed</span><span id="endLabel">4 hours</span>
+            <span id="openLabel">Start</span><span id="baselineLabel" class="reference">Starting price</span><span id="endLabel">Now</span>
           </div>
         </article>
         <aside class="ticket">
           <div class="ticketTop">
-            <h2 id="ticketHeading">Your position</h2>
+            <h2 id="ticketHeading">Trade tickets</h2>
             <span id="seat" class="seat"></span>
           </div>
           <div id="launcher" hidden>
@@ -92,57 +90,60 @@
               placeholder="e.g. Table 3"
               required
             />
-            <p>Your team starts with <b>100 points</b>. A winning ticket pays 10 points.</p>
+            <p>Your team starts with <b>100 points</b>.</p>
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
           <figure class="ticket-tape" id="ticketTape" hidden>
             <figcaption>
-              <div><h3>UP ticket price</h3><small>Buy quote for one ticket</small></div>
+              <h3 id="tapeHeading">Price of a Higher ticket</h3>
               <strong><span id="tapeQuote">—</span> <small>pts</small></strong>
             </figcaption>
-            <svg id="ticketGraph" viewBox="0 0 300 76" role="img"
-              aria-label="UP ticket price in classroom points"></svg>
-            <div class="tape-axis"><span id="tapeStart"></span><span id="tapeEnd"></span></div>
-            <p id="traderCount"></p>
+            <div class="tape-plot" id="tapePlot">
+              <svg id="ticketGraph" viewBox="0 0 300 56" preserveAspectRatio="none"
+                role="img" aria-label="Higher ticket price in classroom points"></svg>
+              <div class="tape-scale" aria-hidden="true"><span>10</span><span>0</span></div>
+            </div>
+            <small id="tapeRange" class="tape-range"></small>
+            <p id="tapeMeaning">If Bitcoin finishes above its start, each Higher ticket pays 10 points.</p>
           </figure>
           <div id="portfolio" hidden>
-            <div class="balance"><span>Available balance</span><b id="wallet">—</b></div>
-            <div class="position-return" id="positionReturn" hidden
-              title="Open tickets are valued at the current market price. The closing result settles the final score.">
-              <span>Est. gain / loss</span><b id="gain">—</b>
-            </div>
             <div id="tradePanel">
-              <div class="tabs" aria-label="Trade action">
-                <button id="buy" aria-pressed="true">Buy</button
-                ><button id="sell" aria-pressed="false">Sell</button>
-              </div>
+              <fieldset class="prediction">
+                <legend>I think Bitcoin will finish…</legend>
+                <div class="pick-row">
+                  <button type="button" id="pickUp" aria-pressed="true"><span aria-hidden="true">↗</span> Higher</button>
+                  <button type="button" id="pickDown" aria-pressed="false"><span aria-hidden="true">↘</span> Lower</button>
+                </div>
+              </fieldset>
               <div class="quantity-control">
-                <label for="quantity">Tickets per order</label>
+                <label for="quantity">Tickets</label>
                 <select id="quantity">
                   <option>1</option><option>2</option><option>3</option><option>4</option>
                   <option>5</option><option>6</option><option>7</option><option>8</option>
                   <option>9</option><option>10</option>
                 </select>
+                <span id="owned"></span>
               </div>
-              <div class="order" data-side="up">
-                <div><b>↗ UP</b><small id="upUnit"></small><small id="upHeld">0 held</small></div>
-                <div class="order-total"><button id="upOrder">Buy 1</button><small id="upLimit"></small></div>
+              <div class="trade-actions">
+                <button id="buy"><b id="buyLabel">Buy Higher</b><small id="buyPrice"></small></button>
+                <button id="sell"><b id="sellLabel">Sell Higher</b><small id="sellPrice"></small></button>
               </div>
-              <div class="order" data-side="down">
-                <div><b>↘ DOWN</b><small id="downUnit"></small><small id="downHeld">0 held</small></div>
-                <div class="order-total"><button id="downOrder">Buy 1</button><small id="downLimit"></small></div>
+              <p class="fine" id="orderNote" hidden></p>
+            </div>
+            <div class="wallet">
+              <div><span id="balanceTitle">Points left</span><b id="wallet">—</b></div>
+              <div id="positionReturn" hidden title="Your tickets are valued at the current market price until the round ends.">
+                <span>Est. profit / loss</span><b id="gain">—</b>
               </div>
-              <p class="fine" id="orderNote">Ticket prices move as teams trade.</p>
             </div>
           </div>
           <p id="notice" role="status"></p>
           <details class="marketRules">
-            <summary>Settlement rules</summary>
-            <p>
-              UP pays 10 points if the closing BTC price exceeds the opening price. DOWN pays 10 if
-              it closes equal or lower. Other tickets pay zero. BTC prices follow the historical
-              record. Student orders and simulated trades move the classroom ticket prices.
-            </p>
+            <summary>How tickets work</summary>
+            <p>Compare Bitcoin’s final price to its starting price. Higher wins if it finishes above the start. Lower wins if it finishes below or exactly at the start. A winning ticket pays 10 points. Other tickets pay zero.</p>
+            <p>You can sell tickets you own before time runs out. Everyone in the room trades at the same market. The two buttons show the estimated total for your chosen number of tickets.</p>
+            <p id="limitInfo" hidden>A trade can fill up to 0.15 points per ticket above the displayed buy price or below the displayed sell price. If the price changes more than that, you can try again at the new price.</p>
+            <p id="traderCount"></p>
           </details>
         </aside>
       </section>

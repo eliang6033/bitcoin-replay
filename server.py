@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent / "public"
 ASSETS = {"index.html", "app.js", "style.css", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
-LIQUIDITY = 40
+LIQUIDITY = 18
 MAX_ORDER = 10
 NETWORK_DURATION = 60
 NPC_COUNT = 20
@@ -84,7 +84,8 @@ class Room:
         return self.rng / 4294967296
 
     def record_ticket(self, seconds):
-        point = {"second": math.floor(seconds * 4) / 4, "price": money(self.quote("up", 1))}
+        point = {"second": math.floor(seconds * 4) / 4,
+                 "price": money(self.quote("up", 1)), "downPrice": money(self.quote("down", 1))}
         if self.ticket_history and self.ticket_history[-1]["second"] == point["second"]:
             self.ticket_history[-1] = point
         else:
@@ -111,19 +112,27 @@ class Room:
         price = self.prices[minute]["price"]
         since_open = math.log(price / self.prices[0]["price"])
         recent = math.log(price / self.prices[max(0, minute - 4)]["price"])
-        target = 0.5 + 0.37 * math.tanh(since_open / 0.035)
-        momentum = (-0.18 if seat % 3 == 0 else 0.24) * math.tanh(recent / 0.015)
-        lean_up = 0.5 + 1.8 * (target - self.probability("up")) + momentum
-        side = "up" if self.random() < min(0.96, max(0.04, lean_up)) else "down"
+        # These are classroom opinions, built only from already-revealed candles.
+        # With less time to recover, the same gap from the opening price matters more.
+        uncertainty = 0.006 + 0.031 * math.sqrt(1 - minute / 240)
+        momentum = (-0.3 if seat % 5 == 0 else 1.0) * math.tanh(recent / 0.022)
+        # The NPC belief spans about 2% to 98% on the market's log-odds scale.
+        target = max(-3.9, min(3.9, since_open / uncertainty + momentum))
+        gap = target - (self.units["up"] - self.units["down"]) / LIQUIDITY
+        lean_up = 0.5 + 0.46 * math.tanh(1.5 * gap)
+        side = "up" if self.random() < lean_up else "down"
         other = "down" if side == "up" else "up"
-        buy_cost = self.quote(side, 1)
-        prefer_sale = self.random() < 0.58
-        if trader[other] > 0 and (prefer_sale or trader["cash"] < buy_cost):
-            self.fill(trader, other, -1, self.quote(other, -1))
-        elif trader["cash"] >= buy_cost:
-            self.fill(trader, side, 1, buy_cost)
+        quantity = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap)))
+        if trader[other]:
+            # Selling the other outcome moves the odds in the same direction.
+            quantity = min(trader[other], quantity)
+            self.fill(trader, other, -quantity, self.quote(other, -quantity))
         else:
-            return False
+            while quantity and self.quote(side, quantity) > trader["cash"]:
+                quantity -= 1
+            if not quantity:
+                return False
+            self.fill(trader, side, quantity, self.quote(side, quantity))
         return True
 
     def advance_market(self, elapsed):
@@ -132,13 +141,14 @@ class Room:
             at = self.next_npc_ms
             minute = math.floor(at * 240 / (self.duration * 1000))
             for i in range(self.last_npc_minute + 1, minute + 1):
-                if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= 0.02:
-                    self.burst_until_ms = at + 5000
+                threshold = 0.006 if i >= 225 else 0.012
+                if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= threshold:
+                    self.burst_until_ms = at + 3500
             self.last_npc_minute = minute
             if self.npc_order(minute):
                 self.npc_trades += 1
                 self.record_ticket(at / 1000)
-            interval = 340 + 140 * self.random() if at < self.burst_until_ms else 750 + 500 * self.random()
+            interval = 170 + 120 * self.random() if at < self.burst_until_ms else 610 + 440 * self.random()
             self.next_npc_ms += math.floor(interval + 0.5)
 
     def update(self):

@@ -196,8 +196,16 @@
           if (message.path !== "state" && !message.roundId) throw Error("Refresh the room before placing an order.");
           const body = message.path === "trade" ? { ...message.body, orderId: message.id } : message.body;
           const state = run(message.path, body, player, false, message.path === "state" ? null : message.roundId);
-          // The chart can contain hundreds of fills. Send students only the
-          // new part when they already have a matching prefix of this round.
+          // The historical candles are immutable, so classmates following the
+          // replay also only need candles printed since their last update.
+          const priceCount = message.priceCount;
+          if (message.roundId === state.roundId && Number.isInteger(priceCount) &&
+              priceCount > 0 && priceCount <= state.prices.length) {
+            state.priceOffset = priceCount;
+            state.prices = state.prices.slice(priceCount);
+          }
+          // The ticket chart can contain hundreds of fills. A cursor verifies
+          // which part of the shared book this student has already seen.
           const cursor = message.chartCursor;
           if (cursor && cursor.roundId === state.roundId && Number.isInteger(cursor.index) && cursor.index >= 0) {
             const point = state.ticketHistory[cursor.index];
@@ -227,7 +235,7 @@
     if (!idFormat.test(id)) throw Error("The room link is incomplete. Ask your host for a new link.");
     const player = playerKey(id);
     const { peer, ready } = openPeer();
-    let connection, connecting, roundId, lastChart;
+    let connection, connecting, roundId, lastChart, lastPrices;
     const pending = new Map();
 
     function disconnect(conn) {
@@ -290,6 +298,8 @@
       const conn = await connect();
       const requestId = randomKey();
       const previous = lastChart;
+      const knownPrices = lastPrices;
+      const priceCount = knownPrices && knownPrices.id === roundId ? knownPrices.prices.length : 0;
       // The newest quarter-second bucket can still change on a student fill.
       const index = previous ? previous.history.length - 2 : -1;
       const chartCursor = index >= 0 ? { roundId: previous.id, index, ...previous.history[index] } : null;
@@ -305,7 +315,7 @@
           resolve: value => { clearTimeout(timeout); resolve(value); },
           reject: error => { clearTimeout(timeout); reject(error); },
         });
-        try { conn.send({ id: requestId, path, body: body || null, roundId: roundId || null, token: player, chartCursor }); }
+        try { conn.send({ id: requestId, path, body: body || null, roundId: roundId || null, token: player, chartCursor, priceCount }); }
         catch (error) { pending.get(requestId)?.reject(error); pending.delete(requestId); }
       });
       if (state.chartOffset !== undefined) {
@@ -317,6 +327,15 @@
         delete state.chartOffset;
       }
       if (Array.isArray(state.ticketHistory)) lastChart = { id: state.roundId, history: state.ticketHistory };
+      if (state.priceOffset !== undefined) {
+        if (!knownPrices || state.roundId !== knownPrices.id || priceCount !== state.priceOffset) {
+          lastPrices = null;
+          throw Error("Refreshing Bitcoin prices. Check your position before trading again.");
+        }
+        state.prices = knownPrices.prices.concat(state.prices);
+        delete state.priceOffset;
+      }
+      if (Array.isArray(state.prices)) lastPrices = { id: state.roundId, prices: state.prices };
       roundId = state.roundId;
       return state;
     }

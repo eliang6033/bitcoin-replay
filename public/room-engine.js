@@ -2,14 +2,14 @@
 (() => {
   "use strict";
   const PAYOUT = 10;
-  const LIQUIDITY = 40;
+  const LIQUIDITY = 18;
+  const LEGACY_LIQUIDITY = 40;
   const MAX_ORDER = 10;
   const NETWORK_SECONDS = 60;
   const HISTORICAL_MINUTES = 240;
   const NPC_COUNT = 20;
   const SIDES = ["up", "down"];
   const PREOPEN_TRADES = 12;
-  const SHOCK_LOG_RETURN = 0.02;
 
   function error(message, status = 400) {
     throw Object.assign(new Error(message), { status });
@@ -58,6 +58,7 @@
         if (saved.market) {
           this.market = {
             ...saved.market,
+            liquidity: saved.market.liquidity ?? LEGACY_LIQUIDITY,
             traders: saved.market.traders.map(p => ({ ...p })),
             history: saved.market.history.map(p => ({ ...p })),
           };
@@ -102,6 +103,7 @@
 
     initMarket(enabled) {
       this.market = {
+        liquidity: enabled ? LIQUIDITY : LEGACY_LIQUIDITY,
         randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
         nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
         traders: [], history: [],
@@ -141,7 +143,7 @@
       const history = this.market.history;
       const last = history[history.length - 1];
       const second = Math.max(last?.second ?? -Infinity, Math.floor(elapsed * 4) / 4);
-      const point = { second, price: money(this.quote("up", 1)) };
+      const point = { second, price: money(this.quote("up", 1)), downPrice: money(this.quote("down", 1)) };
       if (last?.second === second) {
         history[history.length - 1] = point;
       } else {
@@ -162,21 +164,25 @@
       const current = this.prices[minute].price;
       const sinceOpen = Math.log(current / this.prices[0].price);
       const recent = Math.log(current / this.prices[Math.max(0, minute - 4)].price);
-      // A noisy view of the already visible BTC movement, with a mix of
-      // momentum buyers and contrarians who respond to an expensive ticket.
-      const target = 0.5 + 0.37 * Math.tanh(sinceOpen / 0.035);
-      const momentum = (who % 3 === 0 ? -0.18 : 0.24) * Math.tanh(recent / 0.015);
-      const leanUp = 0.5 + 1.8 * (target - this.probability("up")) + momentum;
-      const side = this.random() < Math.min(0.96, Math.max(0.04, leanUp)) ? "up" : "down";
+      // NPCs form opinions about the closing outcome using only revealed candles.
+      // The same gap from the opening price matters more as time runs out.
+      const uncertainty = 0.006 + 0.031 * Math.sqrt(1 - minute / HISTORICAL_MINUTES);
+      const momentum = (who % 5 === 0 ? -0.3 : 1.0) * Math.tanh(recent / 0.022);
+      // A simulated belief from about 2% to 98%, on the market's log-odds scale.
+      const target = Math.max(-3.9, Math.min(3.9, sinceOpen / uncertainty + momentum));
+      const gap = target - (this.units.up - this.units.down) / this.market.liquidity;
+      const leanUp = 0.5 + 0.46 * Math.tanh(1.5 * gap);
+      const side = this.random() < leanUp ? "up" : "down";
       const other = side === "up" ? "down" : "up";
-      const buyCost = this.quote(side, 1);
-      const preferSale = this.random() < 0.58;
-      if (trader[other] > 0 && (preferSale || trader.cash < buyCost)) {
-        this.fill(trader, other, -1, this.quote(other, -1));
-      } else if (trader.cash >= buyCost) {
-        this.fill(trader, side, 1, buyCost);
+      let quantity = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap)));
+      if (trader[other] > 0) {
+        // Selling the other outcome moves the odds in the same direction.
+        quantity = Math.min(trader[other], quantity);
+        this.fill(trader, other, -quantity, this.quote(other, -quantity));
       } else {
-        return false;
+        while (quantity && this.quote(side, quantity) > trader.cash) quantity--;
+        if (!quantity) return false;
+        this.fill(trader, side, quantity, this.quote(side, quantity));
       }
       return true;
     }
@@ -190,8 +196,9 @@
         const at = m.nextMs;
         const minute = Math.floor(at * HISTORICAL_MINUTES / (this.duration * 1000));
         for (let i = m.lastMinute + 1; i <= minute; i++) {
-          if (Math.abs(Math.log(this.prices[i].price / this.prices[i - 1].price)) >= SHOCK_LOG_RETURN) {
-            m.burstUntilMs = at + 5000;
+          const threshold = i >= HISTORICAL_MINUTES - 15 ? 0.006 : 0.012;
+          if (Math.abs(Math.log(this.prices[i].price / this.prices[i - 1].price)) >= threshold) {
+            m.burstUntilMs = at + 3500;
           }
         }
         m.lastMinute = minute;
@@ -200,20 +207,19 @@
           this.recordTicket(at / 1000);
         }
         const fast = at < m.burstUntilMs;
-        m.nextMs += Math.round(fast ? 340 + 140 * this.random() : 750 + 500 * this.random());
+        m.nextMs += Math.round(fast ? 170 + 120 * this.random() : 610 + 440 * this.random());
       }
     }
 
     probability(side) {
       const other = side === "up" ? "down" : "up";
-      const difference = (this.units[side] - this.units[other]) / LIQUIDITY;
+      const difference = (this.units[side] - this.units[other]) / this.market.liquidity;
       return 1 / (1 + Math.exp(-difference));
     }
 
     quote(side, delta) {
-      return (
-        PAYOUT * LIQUIDITY * Math.log1p(this.probability(side) * Math.expm1(delta / LIQUIDITY))
-      );
+      const depth = this.market.liquidity;
+      return PAYOUT * depth * Math.log1p(this.probability(side) * Math.expm1(delta / depth));
     }
 
     join(key, name) {

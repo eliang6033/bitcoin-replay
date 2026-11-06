@@ -12,6 +12,8 @@ Retain buckets whose opening timestamps are at or after 11:30 and strictly befor
 
 The chart begins with the opening trade of the 11:30 bucket, $37,978.10. Each subsequent observation is one completed bucket's closing trade, displayed at the end of its minute. The 15:29 bucket closes at $37,024.50. DOWN wins. These are historical one-minute price observations. Any animated line between samples is a visual transition. Class UP/DOWN ticket quotes come from the classroom simulator.
 
+Polymarket was operating by June 2020. Its public catalog of markets closing around this replay did not yield a contract for the same four-hour Bitcoin question. The game uses its own orders to price Higher and Lower tickets. This lets students trade alongside simulated participants and change the price other teams see. [CFTC record](https://www.cftc.gov/PressRoom/PressReleases/8478-22) · [Polymarket archive query](https://gamma-api.polymarket.com/markets?closed=true&end_date_min=2021-05-18&end_date_max=2021-05-21&limit=100)
+
 ## Block series
 
 Blockstream's public Esplora API supplies the Bitcoin main-chain blocks. Each request returns ten consecutive blocks descending from the requested height. Relevant pages: [684188](https://blockstream.info/api/blocks/684188), [684198](https://blockstream.info/api/blocks/684198), [684208](https://blockstream.info/api/blocks/684208) and [684218](https://blockstream.info/api/blocks/684218). [Esplora API](https://github.com/Blockstream/esplora/blob/master/API.md#blocksstart_height)

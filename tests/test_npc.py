@@ -49,7 +49,8 @@ class MarketReplayTest(unittest.TestCase):
         warm = self.view(game)
         self.assertLess(warm["ticketHistory"][0]["second"], 0)
         self.assertEqual(warm["ticketHistory"][-1]["second"], 0)
-        self.assertEqual(warm["quotes"]["buyUp"], 5.0312)
+        self.assertEqual(warm["quotes"]["buyUp"], warm["quotes"]["buyDown"])
+        self.assertAlmostEqual(warm["quotes"]["buyUp"], 5, delta=0.1)
         game.host_action("start")
         self.now = 300
         closed = self.view(game)
@@ -87,6 +88,18 @@ class MarketReplayTest(unittest.TestCase):
         self.now = 99
         self.assertLess(self.view(rooms[1])["npcTrades"] - prior, 15)
 
+    def test_large_drop_and_rebound_move_the_executable_ticket_prices(self):
+        game = self.room()
+        game.host_action("start")
+        self.now = 125
+        crash = self.view(game)
+        self.assertLess(crash["quotes"]["buyUp"], 0.5)
+        self.assertGreater(crash["quotes"]["buyDown"], 9.5)
+        self.now = 170
+        recovery = self.view(game)
+        self.assertGreater(recovery["quotes"]["buyUp"], crash["quotes"]["buyUp"] + 1.5)
+        self.assertEqual(recovery["quotes"]["buyUp"], recovery["ticketHistory"][-1]["price"])
+
     def test_human_trades_share_the_quote_line_without_counting_as_bot_fills(self):
         game = self.room()
         team = game.join("Test table", "")
@@ -98,7 +111,8 @@ class MarketReplayTest(unittest.TestCase):
         self.assertEqual(after["players"], 1)
         self.assertEqual(after["npcTrades"], before["npcTrades"])
         self.assertGreater(after["ticketHistory"][-1]["price"], before["quotes"]["buyUp"])
-        self.assertEqual(after["ticketHistory"][-1], {"second": 22, "price": after["quotes"]["buyUp"]})
+        self.assertEqual(after["ticketHistory"][-1], {
+            "second": 22, "price": after["quotes"]["buyUp"], "downPrice": after["quotes"]["buyDown"]})
 
 
 if __name__ == "__main__":

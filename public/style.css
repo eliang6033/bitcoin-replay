@@ -35,7 +35,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 74px;
+  min-height: 62px;
 }
 .wordmark {
   display: flex;
@@ -66,7 +66,7 @@ main {
   color: var(--purple);
 }
 .hero {
-  padding: 43px 0 28px;
+  padding: 28px 0 22px;
 }
 .era,
 .kicker {
@@ -95,7 +95,7 @@ p {
 h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
-  font-size: clamp(43px, 6.3vw, 84px);
+  font-size: clamp(43px, 5vw, 66px);
   line-height: 1.05;
   letter-spacing: -0.06em;
   margin: 10px 0 13px;
@@ -133,6 +133,7 @@ button:disabled {
   cursor: default;
 }
 button:focus-visible,
+select:focus-visible,
 input:focus-visible,
 summary:focus-visible,
 a:focus-visible {
@@ -170,12 +171,15 @@ a:focus-visible {
 }
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.86fr) minmax(288px, 1fr);
+  grid-template-columns: minmax(0, 1.62fr) minmax(345px, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 .chartcard {
-  background: #241f35;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: linear-gradient(145deg, #2c253e, #1d1929);
   border-radius: 17px;
   color: white;
   overflow: hidden;
@@ -223,11 +227,14 @@ a:focus-visible {
   color: var(--yellow);
 }
 .plot {
-  height: 228px;
+  flex: 1 1 200px;
+  min-height: 196px;
   position: relative;
   background: radial-gradient(ellipse at 50% 80%, #393049 0, transparent 66%);
 }
 #graph {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
@@ -290,6 +297,7 @@ a:focus-visible {
     monospace;
   padding: 12px 25px 20px;
   border-top: 1px solid #423a4f;
+  align-items: center;
 }
 .ticket,
 .panel {
@@ -299,8 +307,6 @@ a:focus-visible {
   padding: 23px 24px;
 }
 .ticketTop,
-.balance,
-.order,
 .metrics,
 .result,
 footer {
@@ -336,36 +342,72 @@ footer {
   font-size: 14px;
   color: var(--soft);
 }
-.ticket-tape {
-  margin: 14px 0 0;
-  border: 1px solid #c9dcd3;
-  border-radius: 12px;
-  padding: 12px 13px 9px;
-  background: #f0f6f2;
-  color: #164d42;
+.chartfoot .reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.ticket-tape figcaption, .tape-axis {
+.chartfoot .reference::before {
+  content: "";
+  display: inline-block;
+  width: 21px;
+  border-top: 2px dashed #c5b3de;
+}
+.smalltitle { font-size: 15px; }
+.smalltitle span { margin-left: 3px; font: 11px ui-monospace, monospace; }
+.charthead strong { margin: 4px 0 1px; }
+.charthead small { color: #e9e2f3; }
+.ticket { min-width: 0; }
+.ticket-tape {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  color: #126154;
+  background: #eef5ef;
+}
+.ticket-tape.lower {
+  color: #923c4d;
+  background: #f8f0ee;
+}
+.ticket-tape figcaption,
+.tape-plot {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
   gap: 8px;
 }
-.ticket-tape h3 { margin: 0; font-size: 16px; line-height: 1.2; }
-.ticket-tape figcaption small, .tape-axis {
-  color: #496659;
-  font-size: 11px;
-}
+.ticket-tape h3 { margin: 0; font-size: 14px; line-height: 1.25; }
 .ticket-tape figcaption strong {
   white-space: nowrap;
-  font: 650 22px/1.2 ui-monospace, Menlo, monospace;
+  font-size: 21px;
+  line-height: 1.1;
+  letter-spacing: -.025em;
   font-variant-numeric: tabular-nums;
 }
-.ticket-tape svg { display: block; width: 100%; margin: 5px 0 0; }
-.ticket-tape .tape-axis { font-variant-numeric: tabular-nums; }
-.ticket-tape p { font-size: 12px; margin-top: 5px; }
-.order-total { text-align: right; }
-.order-total small { margin-top: 2px; font-variant-numeric: tabular-nums; }
-.order-total small:empty { display: none; }
+.ticket-tape figcaption strong small { font-size: 12px; font-weight: 550; }
+.tape-plot { margin-top: 6px; }
+.tape-plot svg { width: 0; flex: 1 1 auto; height: 48px; }
+.tape-scale {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  justify-content: space-between;
+  padding: 1px 0;
+  color: #635f65;
+  font: 10px/1.1 ui-monospace, monospace;
+}
+.tape-range {
+  display: block;
+  font-size: 10px;
+  color: #61655e;
+}
+.ticket-tape p {
+  font-size: 12px;
+  color: #394740;
+  margin-top: 4px;
+}
+.ticket-tape.lower p {color: #574447;}
 .wide {
   display: flex;
   justify-content: space-between;
@@ -381,64 +423,56 @@ footer {
 .marketRules summary {
   font-size: 13px;
 }
-.balance {
-  padding: 14px 0;
+.prediction { min-width: 0; border: 0; margin: 0; padding: 0; }
+.prediction legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
+.pick-row, .trade-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
 }
-.position-return {
+.pick-row button {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin: -7px 0 10px;
-  color: var(--soft);
-  font-size: 12px;
-}
-.position-return b { color: var(--green); }
-.position-return .loss { color: var(--red); }
-.balance span,
-.fine,
-.score span {
-  font-size: 13px;
-  color: var(--soft);
-}
-.tabs {
-  display: flex;
-  background: #f0eef3;
-  padding: 3px;
-  border-radius: 8px;
-  gap: 4px;
-}
-.tabs button {
-  width: 50%;
-  border: 0;
-  background: transparent;
-  padding: 5px;
-}
-.tabs button[aria-pressed="true"] {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
   background: white;
-  box-shadow: 0 1px 4px #0002;
+  padding: 8px 4px;
 }
-.order {
-  border-bottom: 1px solid #e7e3df;
-  padding: 10px 0;
+.pick-row button span { font-size: 19px; line-height: 1; }
+#pickUp { color: #16594e; }
+#pickDown { color: #8e3544; }
+#pickUp[aria-pressed="true"] { background: #e5f1e9; border-color: #1a6753; box-shadow: inset 0 0 0 1px #1a6753; }
+#pickDown[aria-pressed="true"] { background: #f8e7e6; border-color: #953f4f; box-shadow: inset 0 0 0 1px #953f4f; }
+.trade-actions button {
+  display: grid;
+  place-content: center;
+  gap: 1px;
+  min-height: 55px;
+  border-radius: 8px;
+  padding: 6px;
+  line-height: 1.2;
 }
-.order small,
-.score span {
-  display: block;
+.trade-actions b { font-size: 15px; font-weight: 700; }
+.trade-actions small { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 500; }
+#buy { background: var(--ink); border-color: var(--ink); color: white; }
+#sell { background: #fff; border-color: #8d8695; }
+#sell:disabled { background: #f5f3f0; border-color: #d8d5d0; color: #716e72; opacity: 1; }
+.wallet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 12px;
 }
-.order small {
-  color: var(--soft);
-  font-size: 12px;
-}
-.order b {
-  color: var(--green);
-}
-.order[data-side="down"] b {
-  color: var(--red);
-}
-.order button {
-  font-variant-numeric: tabular-nums;
-  min-width: 130px;
-}
+.wallet div { display: flex; gap: 5px; align-items: baseline; }
+.wallet span { color: var(--soft); font-size: 12px; }
+.wallet b { font-size: 13px; font-variant-numeric: tabular-nums; }
+#gain { color: var(--green); }
+#gain.loss { color: var(--red); }
+.fine, .score span { font-size: 13px; color: var(--soft); }
+.score span {display: block;}
 .fine {
   margin-top: 10px;
 }
@@ -591,13 +625,15 @@ dialog::backdrop {
     min-height: 58px;
   }
   .hero {
-    padding: 25px 0 20px;
+    padding: 20px 0 17px;
   }
   .layout {
     grid-template-columns: 1fr;
   }
   .plot {
-    height: 174px;
+    flex: none;
+    min-height: 0;
+    height: clamp(128px, 32vw, 196px);
   }
   .charthead {
     padding: 19px 19px 0;
@@ -623,6 +659,7 @@ dialog::backdrop {
     grid-template-columns: 1fr;
   }
   .chartfoot {
+    padding: 9px 18px 12px;
     font-size: 10px;
   }
   .result {
@@ -654,21 +691,22 @@ dialog::backdrop {
 .quantity-control {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
+  gap: 8px;
+  margin: 12px 0;
 }
-.quantity-control label {
-  margin: 0;
-}
+.quantity-control label { margin: 0; }
 .quantity-control select {
-  min-width: 76px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
+  min-width: 55px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid #c6c0c3;
   border-radius: 6px;
   background: white;
   color: var(--ink);
   font: inherit;
+  font-size: 14px;
 }
+#owned {margin-left: auto; color: var(--soft); font-size: 12px;}
 .room-qr {
   display: block;
   margin: 12px auto;

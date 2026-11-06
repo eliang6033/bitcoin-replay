@@ -16,8 +16,12 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
     static now() { return milliseconds; }
   }
   let peerNumber = 0;
+  let latestReply;
   class Channel extends EventEmitter {
-    send(value) { queueMicrotask(() => { if (this.open) this.other.emit("data", structuredClone(value)); }); }
+    send(value) {
+      if (value.state) latestReply = structuredClone(value.state);
+      queueMicrotask(() => { if (this.open) this.other.emit("data", structuredClone(value)); });
+    }
     close() {
       if (!this.open) return;
       this.open = this.other.open = false;
@@ -91,7 +95,13 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   milliseconds += 10000;
   const unattended = await student.request("state");
   assert.ok(unattended.npcTrades > 0);
-  assert.deepEqual((await spectator.request("state")).ticketHistory, unattended.ticketHistory);
+  const observer = await spectator.request("state");
+  assert.deepEqual(observer.ticketHistory, unattended.ticketHistory);
+  assert.deepEqual(observer.prices, unattended.prices);
+  assert.equal(latestReply.priceOffset, 1);
+  assert.equal(latestReply.prices.length, observer.prices.length - 1);
+  assert.deepEqual((await spectator.request("state")).prices, unattended.prices);
+  assert.equal(latestReply.prices.length, 0);
   const traded = await student.request("trade", { action: "buy", side: "down" });
   assert.equal(traded.me.down, 1);
   assert.ok(traded.quotes.buyUp < unattended.quotes.buyUp);
@@ -109,6 +119,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.equal(restored.me.up, 0);
   assert.equal(restored.phase, "trading");
   assert.deepEqual(restored.ticketHistory, beforeRefresh.ticketHistory);
+  assert.deepEqual(restored.prices, beforeRefresh.prices);
   assert.equal(restored.npcTrades, beforeRefresh.npcTrades);
   presenting.dispose(); playing.dispose(); watching.dispose();
   await new Promise(resolve => setImmediate(resolve));
@@ -124,6 +135,20 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   const guest = tab();
   const fromOldQR = await guest.join(new URL(originalInvite).searchParams.get("room"));
   assert.equal((await fromOldQR.request("join", { name: "New class" })).players, 1);
+  const restOfClass = Array.from({ length: 19 }, () => tab());
+  const teams = await Promise.all(restOfClass.map(person => person.join(newRound.id)));
+  await Promise.all(teams.map((team, index) => team.request("join", { name: "Table " + (index + 2) })));
+  await newRound.request("host", { action: "start" });
+  milliseconds += 40000;
+  const classViews = await Promise.all([fromOldQR, ...teams].map(team => team.request("state")));
+  for (const view of classViews) {
+    assert.equal(view.players, 20);
+    assert.equal(view.npcCount, 20);
+    assert.deepEqual(view.prices, classViews[0].prices);
+    assert.deepEqual(view.ticketHistory, classViews[0].ticketHistory);
+    assert.equal(view.npcTrades, classViews[0].npcTrades);
+  }
+  restOfClass.forEach(person => person.dispose());
   reopened.dispose(); guest.dispose();
   await new Promise(resolve => setImmediate(resolve));
   const bookmarked = tab(new Map(), "https://example.github.io/bitcoin-replay/?host=" + host.id);

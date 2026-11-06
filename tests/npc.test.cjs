@@ -4,9 +4,9 @@ const data = require("../public/history.json");
 globalThis.crypto ??= require("node:crypto").webcrypto;
 require("../public/room-engine.js");
 
-function setup(history = data, saved) {
+function setup(history = data, saved, seed = 1234) {
   let now = 0;
-  const room = new BitcoinReplayRoom(history, { clock: () => now, seed: 1234, saved });
+  const room = new BitcoinReplayRoom(history, { clock: () => now, seed, saved });
   return {
     room,
     at(seconds) { now = seconds; return this.get(); },
@@ -33,13 +33,15 @@ test("synthetic opening is balanced, NPCs share the students' book, totals recon
   const buy = sim.student("trade", { side: "up", action: "buy", quantity: 5 });
   assert.ok(buy.quotes.buyUp > current.quotes.buyUp + .2);
   assert.equal(buy.ticketHistory.at(-1).price, buy.quotes.buyUp);
+  assert.equal(buy.ticketHistory.at(-1).downPrice, buy.quotes.buyDown);
+  assert.notEqual(buy.quotes.buyDown, 10 - buy.quotes.buyUp);
   assert.equal(buy.npcTrades, current.npcTrades);
   assert.equal(buy.me.up, 5);
   assert.deepEqual(buy.rankings.map(p => p.name), ["Table A"]);
 
   const final = sim.at(300);
   assert.equal(final.ticketHistory.at(-1).price, final.quotes.buyUp);
-  assert.ok(final.npcTrades > 300 && final.npcTrades < 460);
+  assert.ok(final.npcTrades > 500 && final.npcTrades < 1000);
   assert.deepEqual(sim.at(340).ticketHistory, final.ticketHistory);
   assert.ok(final.ticketHistory.every((p, i, h) => i === 0 || p.second > h[i - 1].second));
   const saved = sim.room.save();
@@ -63,11 +65,39 @@ test("a quiet market ticks about once per second; a visible jump briefly acceler
   const quietFills = quiet.at(25.99).npcTrades - before.npcTrades;
   const shockFills = active.at(25.99).npcTrades - before.npcTrades;
   assert.ok(quietFills >= 5 && quietFills <= 8);
-  assert.ok(shockFills >= 11 && shockFills <= 16);
+  assert.ok(shockFills >= 15 && shockFills <= 22);
   const seen = quiet.at(65);
   assert.deepEqual(quiet.at(65).ticketHistory, seen.ticketHistory);
   const stable = active.at(35).npcTrades;
-  assert.ok(active.at(55).npcTrades - stable <= 24);
+  assert.ok(active.at(55).npcTrades - stable <= 27);
+});
+
+test("the recorded crash pushes actual UP quotes to the edge and the rebound brings them back", () => {
+  for (const seed of [1, 4, 38, 91, 1234]) {
+    const sim = setup(data, null, seed);
+    sim.start();
+    const low = sim.at(125);
+    assert.ok(low.lastPrice < 0.81 * low.startPrice);
+    assert.ok(low.quotes.buyUp < 0.5 && low.quotes.buyDown > 9.5);
+    const rebound = sim.at(170);
+    assert.ok(rebound.lastPrice > 1.17 * low.lastPrice);
+    assert.ok(rebound.quotes.buyUp > low.quotes.buyUp + 1.5);
+    assert.equal(rebound.ticketHistory.at(-1).price, rebound.quotes.buyUp);
+    assert.equal(rebound.ticketHistory.at(-1).downPrice, rebound.quotes.buyDown);
+  }
+});
+
+test("as closing time approaches the same price gap matters more", () => {
+  const gap = structuredClone(data);
+  for (let i = 0; i < gap.prices.length; i++) {
+    gap.prices[i].price = i < 10 ? 100 : 97;
+  }
+  const sim = setup(gap);
+  sim.start();
+  const early = sim.at(80);
+  const late = sim.at(299);
+  assert.equal(early.lastPrice, late.lastPrice);
+  assert.ok(late.quotes.buyUp < early.quotes.buyUp - 1);
 });
 
 test("clock-driven catch-up matches repeated polls and survives host refresh", () => {
@@ -97,4 +127,17 @@ test("existing rounds keep their market on upgrade and get NPCs with the next re
   const fresh = legacy.room.request("host", { action: "reset" }, "host", true, "/");
   assert.equal(fresh.npcCount, 20);
   assert.equal(fresh.players, 0);
+});
+
+test("refreshing a pre-upgrade NPC room preserves all existing trade prices and balances", () => {
+  const original = setup();
+  original.room.market.liquidity = 40;
+  original.student("join", { name: "Existing team" });
+  original.start();
+  const before = original.student("trade", { side: "down", action: "buy", quantity: 5 });
+  const saved = original.room.save();
+  delete saved.market.liquidity;
+  const restored = setup(data, saved).get();
+  assert.deepEqual(restored.quoteTotals, before.quoteTotals);
+  assert.deepEqual(restored.me, before.me);
 });
