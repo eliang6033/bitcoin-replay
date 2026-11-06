@@ -25,6 +25,7 @@ const hostActions = {
   discussion: ["New class round", "reset"],
 };
 const svgNS = "http://www.w3.org/2000/svg";
+const quoteAllowance = 0.15;
 function shape(tag, attrs, content) {
   const e = document.createElementNS(svgNS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -133,6 +134,61 @@ function draw(s, net) {
   }
   svg.replaceChildren(fragment);
 }
+function drawTicketTape(s) {
+  const series = s.ticketHistory;
+  const visible = Boolean(series?.length) && !["network", "discussion"].includes(s.phase);
+  show("ticketTape", visible);
+  if (!visible) return;
+
+  const first = series[0].second;
+  const end = Math.max(0, s.elapsed, series[series.length - 1].second);
+  const quote = s.quotes.buyUp;
+  const prices = series.map(point => point.price);
+  const low = Math.max(0, Math.floor((Math.min(...prices) - 0.15) * 2) / 2);
+  const high = Math.min(10, Math.ceil((Math.max(...prices) + 0.15) * 2) / 2);
+  const x = time => 5 + (time - first) * 256 / Math.max(end - first, 1);
+  const y = price => 66 - (price - low) * 54 / Math.max(high - low, 0.5);
+  const fragment = document.createDocumentFragment();
+
+  for (const tick of [low, high]) {
+    fragment.append(
+      shape("line", {x1: 5, x2: 264, y1: y(tick), y2: y(tick), stroke: "#b8cfc2", "stroke-dasharray": "2 4"}),
+      shape("text", {x: 298, y: y(tick) + 3, "text-anchor": "end", fill: "#547160", "font-size": 10}, tick.toFixed(1)),
+    );
+  }
+  if (first < 0 && end > 0) {
+    fragment.append(shape("line", {x1: x(0), x2: x(0), y1: 6, y2: 70, stroke: "#91ab9c"}));
+  }
+  const preopen = series.filter(point => point.second <= 0);
+  const live = series.filter(point => point.second > 0);
+  function trace(points, lastTime, warmup) {
+    if (!points.length) return;
+    const start = points[0];
+    let path = `M ${x(start.second).toFixed(2)} ${y(start.price).toFixed(2)}`;
+    for (const point of points.slice(1)) {
+      path += ` H ${x(point.second).toFixed(2)} V ${y(point.price).toFixed(2)}`;
+    }
+    path += ` H ${x(lastTime).toFixed(2)}`;
+    fragment.append(shape("path", {d: path, fill: "none", stroke: warmup ? "#67957f" : "#146657",
+      "stroke-width": 2.1, "stroke-linejoin": "round", "stroke-dasharray": warmup ? "3 3" : "none"}));
+  }
+  trace(preopen, 0, true);
+  if (end > 0) {
+    if (preopen.length) live.unshift({second: 0, price: preopen[preopen.length - 1].price});
+    trace(live, end, false);
+  }
+  fragment.append(shape("circle", {cx: x(end), cy: y(quote), r: 3, fill: "#146657"}));
+  const graph = $("ticketGraph");
+  graph.replaceChildren(fragment);
+  graph.setAttribute("aria-label", `UP ticket buy quote. Currently ${pts(quote)} points, range ${pts(Math.min(...prices))} to ${pts(Math.max(...prices))}.`);
+  label("tapeQuote", pts(quote));
+  label("tapeStart", first < 0 ? "Dashed · simulated pre-open" : timer(first));
+  label("tapeEnd", s.phase === "lobby" ? "Opening bell" : timer(end) + " elapsed");
+}
+function roomCount(s) {
+  const students = num.format(s.players) + (s.players === 1 ? " student team" : " student teams");
+  return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
+}
 const quantityControl = $("quantity");
 const ticketLabel = (quantity) => quantity === 1 ? "ticket" : "tickets";
 function selectedQuantity() {
@@ -142,6 +198,13 @@ function orderQuote(side, quantity) {
   const key = action + (side === "up" ? "Up" : "Down");
   // A host tab opened before quantity selection shipped still provides single-ticket quotes.
   return state.quoteTotals?.[key]?.[quantity - 1] ?? state.quotes[key];
+}
+function executionLimit(quote, quantity) {
+  if (!state.npcCount) return quote;
+  const allowance = quantity * quoteAllowance;
+  return action === "buy"
+    ? Math.min(state.me?.cash ?? 100, quantity * 10, Math.floor((quote + allowance) * 100) / 100)
+    : Math.max(0, Math.ceil((quote - allowance) * 100) / 100);
 }
 function setOrders() {
   if (!state) return;
@@ -155,9 +218,13 @@ function setOrders() {
   const verb = action === "buy" ? "Buy" : "Sell";
   for (const side of ["up", "down"]) {
     const quote = orderQuote(side, quantity);
-    label(side + "Order", verb + " " + quantity + " · " + pts(quote) + " pts total");
+    const limit = executionLimit(quote, quantity);
+    const limitText = (action === "buy" ? "Max " : "Min ") + pts(limit) + " pts total";
+    label(side + "Order", verb + " " + quantity + " · " + (s.npcCount ? "≈" : "") + pts(quote) + " pts");
+    label(side + "Limit", s.npcCount && (action !== "buy" || !s.me || s.me.cash >= quote) ? limitText : "");
     $(side + "Order").setAttribute("aria-label",
-      `${verb} ${quantity} ${side.toUpperCase()} ${ticketLabel(quantity)} for ${pts(quote)} points total`);
+      `${verb} ${quantity} ${side.toUpperCase()} ${ticketLabel(quantity)} for ${pts(quote)} points total` +
+      (s.npcCount ? ". " + limitText : ""));
     if ($(side + "Unit")) label(side + "Unit", "1 ticket · " + pts(orderQuote(side, 1)) + " pts");
     label(side + "Held", (s.me?.[side] ?? 0) + " held");
     $(side + "Order").disabled =
@@ -205,7 +272,7 @@ function paint(s) {
   label("price", net ? num.format(s.network.blocks.length) + " blocks" : usd.format(s.lastPrice));
   document.querySelector(".smalltitle").textContent = net
     ? "Bitcoin / Network activity"
-    : "Bitcoin / US Dollar";
+    : "Historical Bitcoin / US Dollar";
   const diff = s.lastPrice - s.startPrice;
   label(
     "priceDelta",
@@ -229,6 +296,8 @@ function paint(s) {
   label("axisMiddle", net ? "Bar height = transaction count" : "Historical time elapsed");
   label("openLabel", net ? "0 hours" : "Opening bell");
   draw(s, net);
+  drawTicketTape(s);
+  label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
   show("hostbar", s.host);
   const showLobbyInvite = s.host && s.phase === "lobby" && scannable(s.joinUrl);
@@ -253,17 +322,23 @@ function paint(s) {
   label(
     "hostHint",
     s.phase === "network" ? "Same window · 60-second replay" :
-      num.format(s.players) + (s.players === 1 ? " team joined" : " teams joined"),
+      roomCount(s),
   );
   show("joinForm", !s.me && !done);
   show("portfolio", !!s.me);
   label("seat", s.me ? s.me.name : done ? "Spectator" : "");
+  show("positionReturn", Boolean(s.me) && inGame);
   if (s.me) {
     label("wallet", pts(done ? s.me.points : s.me.cash) + " pts");
     show("tradePanel", !done);
     document.querySelector(".balance span").textContent = done
       ? "Settled balance"
       : "Available balance";
+    if (inGame) {
+      const gain = s.me.points - 100;
+      label("gain", (gain < 0 ? "−" : "+") + pts(Math.abs(gain)) + " pts");
+      $("gain").classList.toggle("loss", gain < 0);
+    }
   }
   label("ticketHeading", done ? "Your result" : "Your position");
   label(
@@ -272,7 +347,9 @@ function paint(s) {
       ? "This room supports one ticket per order. Ask the host to refresh for larger orders."
       : s.phase === "lobby"
         ? "Orders open when the host starts the clock."
-        : "All teams see the same quotes. Buying or selling tickets moves the price.",
+        : s.npcCount
+          ? "Quotes move as orders arrive. Each ticket can fill up to 0.15 points above a buy quote or below a sell quote."
+          : "All teams see the same quotes. Buying or selling tickets moves the price.",
   );
   setOrders();
   show("result", done);
@@ -363,17 +440,25 @@ async function submit(path, body) {
   busy = true;
   setOrders();
   try {
-    await call(path, body);
+    const previousCash = state?.me?.cash;
+    const updated = await call(path, body);
     label(
       "notice",
       path === "trade"
         ? (body.action === "buy" ? "Bought" : "Sold") +
-            ` ${body.quantity} ${body.side.toUpperCase()} ${ticketLabel(body.quantity)}.`
+            ` ${body.quantity} ${body.side.toUpperCase()} ${ticketLabel(body.quantity)} for ${pts(Math.abs(updated.me.cash - previousCash))} pts total.`
         : "",
     );
   } catch (e) {
-    label("notice", e.message);
-    label("status", e.message);
+    if (path === "trade") {
+      // Refresh the quote and wallet after a rejection. Never resubmit an order.
+      try { await call("state"); } catch { /* Keep the original order error visible. */ }
+    }
+    const message = e.message.startsWith("Another team traded")
+      ? "The price moved outside your order limit. Check the new quote and try again."
+      : e.message;
+    label("notice", message);
+    label("status", message);
     show("status", true);
   } finally {
     busy = false;
@@ -388,7 +473,7 @@ async function refresh() {
       label("status", online ? error.message : "Connection interrupted. Reconnecting to the classroom…");
       show("status", true);
     }
-  setTimeout(refresh, 1000);
+  setTimeout(refresh, state?.phase === "trading" && state.npcCount ? 600 : 1000);
 }
 $("joinForm").onsubmit = (e) => {
   e.preventDefault();
@@ -403,7 +488,7 @@ if (quantityControl) quantityControl.onchange = setOrders;
 for (const side of ["up", "down"]) {
   $(side + "Order").onclick = () => {
     const quantity = selectedQuantity();
-    submit("trade", { side, action, quantity, quoteLimit: orderQuote(side, quantity) });
+    submit("trade", { side, action, quantity, quoteLimit: executionLimit(orderQuote(side, quantity), quantity) });
   };
 }
 $("restart").onclick = () => {
@@ -471,7 +556,7 @@ $("guide").onclick = () =>
   modal("How to play", [
     "Join with a team name to get 100 points. Everyone sees the same four hours of mid-May 2021 Bitcoin prices, replayed in five minutes. A real minute covers 48 historical minutes.",
     "Pick UP if you think Bitcoin will finish above its opening price. Pick DOWN if you expect an equal or lower close. Use Buy or Sell to change your position before time runs out.",
-    "One winning ticket pays 10 points. A losing ticket pays zero. An automated classroom market adjusts quotes as teams buy and sell. Only virtual points change hands.",
+    "One winning ticket pays 10 points. A losing ticket pays zero. Twenty simulated traders react to the Bitcoin prices revealed so far. Their orders and yours move the ticket price in points. The dashed part of the ticket chart shows simulated trading before the opening bell.",
   ]);
 $("invite").onclick = () =>
   modal(

@@ -21,6 +21,8 @@ STARTING_CASH = 100
 LIQUIDITY = 40
 MAX_ORDER = 10
 NETWORK_DURATION = 60
+NPC_COUNT = 20
+PREOPEN_TRADES = 12
 
 
 class GameError(Exception):
@@ -38,10 +40,11 @@ def money(value):
 
 
 class Room:
-    def __init__(self, data, duration=300, clock=time.monotonic):
+    def __init__(self, data, duration=300, clock=time.monotonic, seed=None):
         self.data = data
         self.duration = duration
         self.clock = clock
+        self.seed = seed
         self.lock = threading.RLock()
         self.start = data["start"]
         self.end = data["end"]
@@ -65,11 +68,88 @@ class Room:
         self.winner = None
         self.executed = {}
         self.round_id = secrets.token_hex(5)
+        self.rng = (int(self.round_id[:8], 16) if self.seed is None else self.seed) & 0xffffffff
+        self.npcs = [{"name": f"NPC {i + 1:02}", "cash": STARTING_CASH, "up": 0, "down": 0}
+                     for i in range(NPC_COUNT)]
+        self.npc_trades = 0
+        self.next_npc_ms = 1100
+        self.burst_until_ms = 0
+        self.last_npc_minute = 0
+        self.ticket_history = []
+        self.warm_market()
+
+    def random(self):
+        # Fixed 32-bit LCG matches the browser engine and is independent of polling.
+        self.rng = (1664525 * self.rng + 1013904223) & 0xffffffff
+        return self.rng / 4294967296
+
+    def record_ticket(self, seconds):
+        point = {"second": math.floor(seconds * 4) / 4, "price": money(self.quote("up", 1))}
+        if self.ticket_history and self.ticket_history[-1]["second"] == point["second"]:
+            self.ticket_history[-1] = point
+        else:
+            self.ticket_history.append(point)
+
+    def fill(self, player, side, delta, cost):
+        player["cash"] = max(0, player["cash"] - cost)
+        player[side] += delta
+        self.units[side] += delta
+
+    def warm_market(self):
+        self.record_ticket(-PREOPEN_TRADES)
+        sides = ["up", "down"] * (PREOPEN_TRADES // 2)
+        for i in range(len(sides) - 1, 0, -1):
+            j = int(self.random() * (i + 1))
+            sides[i], sides[j] = sides[j], sides[i]
+        for i, side in enumerate(sides):
+            self.fill(self.npcs[i], side, 1, self.quote(side, 1))
+            self.record_ticket(i + 1 - PREOPEN_TRADES)
+
+    def npc_order(self, minute):
+        seat = int(self.random() * NPC_COUNT)
+        trader = self.npcs[seat]
+        price = self.prices[minute]["price"]
+        since_open = math.log(price / self.prices[0]["price"])
+        recent = math.log(price / self.prices[max(0, minute - 4)]["price"])
+        target = 0.5 + 0.37 * math.tanh(since_open / 0.035)
+        momentum = (-0.18 if seat % 3 == 0 else 0.24) * math.tanh(recent / 0.015)
+        lean_up = 0.5 + 1.8 * (target - self.probability("up")) + momentum
+        side = "up" if self.random() < min(0.96, max(0.04, lean_up)) else "down"
+        other = "down" if side == "up" else "up"
+        buy_cost = self.quote(side, 1)
+        prefer_sale = self.random() < 0.58
+        if trader[other] > 0 and (prefer_sale or trader["cash"] < buy_cost):
+            self.fill(trader, other, -1, self.quote(other, -1))
+        elif trader["cash"] >= buy_cost:
+            self.fill(trader, side, 1, buy_cost)
+        else:
+            return False
+        return True
+
+    def advance_market(self, elapsed):
+        # The host clock sets order times. Polling more often cannot generate extra fills.
+        while self.next_npc_ms <= elapsed * 1000 and self.next_npc_ms < self.duration * 1000:
+            at = self.next_npc_ms
+            minute = math.floor(at * 240 / (self.duration * 1000))
+            for i in range(self.last_npc_minute + 1, minute + 1):
+                if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= 0.02:
+                    self.burst_until_ms = at + 5000
+            self.last_npc_minute = minute
+            if self.npc_order(minute):
+                self.npc_trades += 1
+                self.record_ticket(at / 1000)
+            interval = 340 + 140 * self.random() if at < self.burst_until_ms else 750 + 500 * self.random()
+            self.next_npc_ms += math.floor(interval + 0.5)
 
     def update(self):
-        if self.phase == "trading" and self.clock() - self.started >= self.duration:
+        if self.phase != "trading":
+            return 0
+        elapsed = max(0, min(self.duration, self.clock() - self.started))
+        self.advance_market(elapsed)
+        if elapsed >= self.duration:
             self.phase = "settled"
             self.winner = "up" if self.prices[-1]["price"] > self.prices[0]["price"] else "down"
+        return elapsed
 
     def join(self, name, existing):
         self.update()
@@ -102,7 +182,7 @@ class Room:
         return PAYOUT * LIQUIDITY * math.log1p(self.probability(side) * math.expm1(delta / LIQUIDITY))
 
     def trade(self, key, side, action, quantity, order_id=None, quote_limit=None):
-        self.update()
+        elapsed = self.update()
         if order_id is not None:
             if not isinstance(order_id, str) or not 1 <= len(order_id) <= 64:
                 raise GameError("Invalid trade reference.")
@@ -132,9 +212,8 @@ class Room:
             raise GameError("You can only sell tickets you own.", 409)
         if delta > 0 and cost > player["cash"] + 1e-9:
             raise GameError("You need more points for this trade.", 409)
-        player["cash"] = max(0, player["cash"] - cost)
-        player[side] += delta
-        self.units[side] += delta
+        self.fill(player, side, delta, cost)
+        self.record_ticket(elapsed)
         if order_id is not None:
             self.executed[key, order_id] = (side, action, quantity)
 
@@ -181,6 +260,7 @@ class Room:
             "lastPrice": visible[-1]["price"], "upPrice": money(up), "downPrice": money(PAYOUT - up),
             "quotes": {key: totals[0] for key, totals in quote_totals.items()},
             "quoteTotals": quote_totals,
+            "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
             "players": len(self.players), "me": None if player is None else {
                 **player, "cash": money(player["cash"]), "points": balance(player)},
             "rankings": sorted([{"name": p["name"], "points": balance(p)} for p in self.players.values()],

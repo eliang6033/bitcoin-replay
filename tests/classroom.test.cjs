@@ -11,6 +11,10 @@ const source = name => readFileSync(path.join(__dirname, "..", "public", name), 
 
 test("invite, host proof, independent seats, host-only controls and reconnect after reload", async () => {
   const network = new Map();
+  let milliseconds = Date.UTC(2021, 0, 1);
+  class RoomClock extends Date {
+    static now() { return milliseconds; }
+  }
   let peerNumber = 0;
   class Channel extends EventEmitter {
     send(value) { queueMicrotask(() => { if (this.open) this.other.emit("data", structuredClone(value)); }); }
@@ -60,7 +64,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   function tab(session = new Map(), url = "https://example.github.io/bitcoin-replay/") {
     const storage = values => ({ getItem: k => values.get(k) || null, setItem: (k, v) => values.set(k, v) });
     const context = vm.createContext({
-      crypto: webcrypto, Peer, URL, AbortSignal, setTimeout, clearTimeout, addEventListener() {},
+      crypto: webcrypto, Peer, URL, AbortSignal, Date: RoomClock, setTimeout, clearTimeout, addEventListener() {},
       fetch: async () => ({ ok: true, json: async () => JSON.parse(source("history.json")) }),
       location: { href: url }, history: { replaceState() {} }, navigator: { locks },
       localStorage: storage(local), sessionStorage: storage(session),
@@ -81,10 +85,20 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   await assert.rejects(student.request("host", { action: "start" }), /Students can join and trade only/);
   await student.request("join", { name: "First table" });
   assert.equal((await spectator.request("state")).me, null);
-  await host.request("host", { action: "start" });
+  const opening = await host.request("host", { action: "start" });
+  assert.equal(opening.npcCount, 20);
+  assert.equal(opening.players, 1);
+  milliseconds += 10000;
+  const unattended = await student.request("state");
+  assert.ok(unattended.npcTrades > 0);
+  assert.deepEqual((await spectator.request("state")).ticketHistory, unattended.ticketHistory);
   const traded = await student.request("trade", { action: "buy", side: "down" });
   assert.equal(traded.me.down, 1);
+  assert.ok(traded.quotes.buyUp < unattended.quotes.buyUp);
+  assert.equal((await spectator.request("state")).ticketHistory.at(-1).price, traded.quotes.buyUp);
   assert.equal(traded.reveal, null);
+  milliseconds += 5500;
+  const beforeRefresh = await student.request("state");
   presenting.dispose();
   local.clear(); // Existing host tabs initially have the prior release's session-only record.
   await assert.rejects(student.request("trade", { action: "buy", side: "up" }), /Reconnect/);
@@ -94,6 +108,8 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.equal(restored.me.down, 1);
   assert.equal(restored.me.up, 0);
   assert.equal(restored.phase, "trading");
+  assert.deepEqual(restored.ticketHistory, beforeRefresh.ticketHistory);
+  assert.equal(restored.npcTrades, beforeRefresh.npcTrades);
   presenting.dispose(); playing.dispose(); watching.dispose();
   await new Promise(resolve => setImmediate(resolve));
 

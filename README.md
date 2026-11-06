@@ -8,6 +8,10 @@ Open [Bitcoin Replay](https://eliang6033.github.io/bitcoin-replay/) and select *
 
 Keep the host tab open and the device awake. On GitHub Pages the host's browser manages the shared market. PeerJS helps players connect to it over WebRTC. Students can use different networks if their browsers can establish a connection. If a participant has trouble connecting, check that the host tab is open and try a different network. For a classroom with restricted connections, the local network option below uses a shared Python server.
 
+Each new round includes **20 simulated traders**. Together they place roughly one small order per second, with faster bursts after sharp moves in the Bitcoin prices already shown. Students trade in the same market. The count of teams in the lobby includes classmates only.
+
+The chart beside the order controls tracks **the cost in points to buy one UP ticket**. Its opening segment shows simulated pre-game trades. Watch the live quote when deciding whether to buy, sell, or hold. The separate BTC/USD chart replays the historical exchange price, which determines the winning ticket at the end.
+
 ## Try the local edition on one computer
 
 Open a terminal in this folder and run the following with Python 3.9 or newer.

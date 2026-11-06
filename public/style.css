@@ -336,6 +336,36 @@ footer {
   font-size: 14px;
   color: var(--soft);
 }
+.ticket-tape {
+  margin: 14px 0 0;
+  border: 1px solid #c9dcd3;
+  border-radius: 12px;
+  padding: 12px 13px 9px;
+  background: #f0f6f2;
+  color: #164d42;
+}
+.ticket-tape figcaption, .tape-axis {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.ticket-tape h3 { margin: 0; font-size: 16px; line-height: 1.2; }
+.ticket-tape figcaption small, .tape-axis {
+  color: #496659;
+  font-size: 11px;
+}
+.ticket-tape figcaption strong {
+  white-space: nowrap;
+  font: 650 22px/1.2 ui-monospace, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-tape svg { display: block; width: 100%; margin: 5px 0 0; }
+.ticket-tape .tape-axis { font-variant-numeric: tabular-nums; }
+.ticket-tape p { font-size: 12px; margin-top: 5px; }
+.order-total { text-align: right; }
+.order-total small { margin-top: 2px; font-variant-numeric: tabular-nums; }
+.order-total small:empty { display: none; }
 .wide {
   display: flex;
   justify-content: space-between;
@@ -354,6 +384,16 @@ footer {
 .balance {
   padding: 14px 0;
 }
+.position-return {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -7px 0 10px;
+  color: var(--soft);
+  font-size: 12px;
+}
+.position-return b { color: var(--green); }
+.position-return .loss { color: var(--red); }
 .balance span,
 .fine,
 .score span {

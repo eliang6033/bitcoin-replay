@@ -6,6 +6,10 @@
   const MAX_ORDER = 10;
   const NETWORK_SECONDS = 60;
   const HISTORICAL_MINUTES = 240;
+  const NPC_COUNT = 20;
+  const SIDES = ["up", "down"];
+  const PREOPEN_TRADES = 12;
+  const SHOCK_LOG_RETURN = 0.02;
 
   function error(message, status = 400) {
     throw Object.assign(new Error(message), { status });
@@ -15,10 +19,11 @@
   const utc = (seconds) => new Date(seconds * 1000).toISOString().replace(".000Z", "Z");
 
   class BitcoinReplayRoom {
-    constructor(data, { clock = () => Date.now() / 1000, duration = 300, saved } = {}) {
+    constructor(data, { clock = () => Date.now() / 1000, duration = 300, saved, seed } = {}) {
       this.data = data;
       this.clock = clock;
       this.duration = duration;
+      this.seed = seed;
       this.prices = data.prices
         .map(({ time, price }) => ({
           minute: (time - data.start) / 60,
@@ -50,6 +55,16 @@
         this.units = { ...saved.units };
         this.players = new Map(saved.players.map(([key, player]) => [key, { ...player }]));
         this.executed = new Map(saved.executed);
+        if (saved.market) {
+          this.market = {
+            ...saved.market,
+            traders: saved.market.traders.map(p => ({ ...p })),
+            history: saved.market.history.map(p => ({ ...p })),
+          };
+        } else {
+          // A market already played on the old site keeps its original book.
+          this.initMarket(this.phase === "lobby");
+        }
       } else {
         this.reset();
       }
@@ -66,6 +81,11 @@
         units: { ...this.units },
         players: Array.from(this.players, ([key, player]) => [key, { ...player }]),
         executed: Array.from(this.executed),
+        market: {
+          ...this.market,
+          traders: this.market.traders.map(p => ({ ...p })),
+          history: this.market.history.slice(),
+        },
       };
     }
 
@@ -77,6 +97,111 @@
       this.units = { up: 0, down: 0 };
       this.players = new Map();
       this.executed = new Map();
+      this.initMarket(true);
+    }
+
+    initMarket(enabled) {
+      this.market = {
+        randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
+        nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
+        traders: [], history: [],
+      };
+      if (!enabled) {
+        this.recordTicket(this.elapsed(this.clock()));
+        return;
+      }
+      this.market.traders = Array.from({ length: NPC_COUNT }, (_, i) => ({
+        name: "NPC " + String(i + 1).padStart(2, "0"), cash: 100, up: 0, down: 0,
+      }));
+      // Simulated opening orders use only the opening book. A balanced set
+      // gives every class the same starting quote while the path can vary.
+      const sides = Array.from({ length: PREOPEN_TRADES }, (_, i) => SIDES[i % 2]);
+      for (let i = sides.length - 1; i > 0; i--) {
+        const j = Math.floor(this.random() * (i + 1));
+        [sides[i], sides[j]] = [sides[j], sides[i]];
+      }
+      this.recordTicket(-PREOPEN_TRADES);
+      sides.forEach((side, i) => {
+        this.fill(this.market.traders[i], side, 1, this.quote(side, 1));
+        this.recordTicket(i + 1 - PREOPEN_TRADES);
+      });
+    }
+
+    random() {
+      const m = this.market;
+      m.randomState = (Math.imul(m.randomState, 1664525) + 1013904223) >>> 0;
+      return m.randomState / 4294967296;
+    }
+
+    elapsed(now) {
+      return this.started === null ? 0 : Math.min(this.duration, Math.max(0, now - this.started));
+    }
+
+    recordTicket(elapsed) {
+      const history = this.market.history;
+      const last = history[history.length - 1];
+      const second = Math.max(last?.second ?? -Infinity, Math.floor(elapsed * 4) / 4);
+      const point = { second, price: money(this.quote("up", 1)) };
+      if (last?.second === second) {
+        history[history.length - 1] = point;
+      } else {
+        history.push(point);
+      }
+    }
+
+    fill(player, side, delta, cost) {
+      player.cash = Math.max(0, player.cash - cost);
+      player[side] += delta;
+      this.units[side] += delta;
+    }
+
+    npcOrder(minute) {
+      const traders = this.market.traders;
+      const who = Math.floor(this.random() * traders.length);
+      const trader = traders[who];
+      const current = this.prices[minute].price;
+      const sinceOpen = Math.log(current / this.prices[0].price);
+      const recent = Math.log(current / this.prices[Math.max(0, minute - 4)].price);
+      // A noisy view of the already visible BTC movement, with a mix of
+      // momentum buyers and contrarians who respond to an expensive ticket.
+      const target = 0.5 + 0.37 * Math.tanh(sinceOpen / 0.035);
+      const momentum = (who % 3 === 0 ? -0.18 : 0.24) * Math.tanh(recent / 0.015);
+      const leanUp = 0.5 + 1.8 * (target - this.probability("up")) + momentum;
+      const side = this.random() < Math.min(0.96, Math.max(0.04, leanUp)) ? "up" : "down";
+      const other = side === "up" ? "down" : "up";
+      const buyCost = this.quote(side, 1);
+      const preferSale = this.random() < 0.58;
+      if (trader[other] > 0 && (preferSale || trader.cash < buyCost)) {
+        this.fill(trader, other, -1, this.quote(other, -1));
+      } else if (trader.cash >= buyCost) {
+        this.fill(trader, side, 1, buyCost);
+      } else {
+        return false;
+      }
+      return true;
+    }
+
+    advanceMarket(elapsed) {
+      const m = this.market;
+      if (!m.traders.length) return;
+      // Each event uses its scheduled time, even after a sleeping host wakes.
+      // No order can use the closing candle, which settles the tickets.
+      while (m.nextMs <= elapsed * 1000 && m.nextMs < this.duration * 1000) {
+        const at = m.nextMs;
+        const minute = Math.floor(at * HISTORICAL_MINUTES / (this.duration * 1000));
+        for (let i = m.lastMinute + 1; i <= minute; i++) {
+          if (Math.abs(Math.log(this.prices[i].price / this.prices[i - 1].price)) >= SHOCK_LOG_RETURN) {
+            m.burstUntilMs = at + 5000;
+          }
+        }
+        m.lastMinute = minute;
+        if (this.npcOrder(minute)) {
+          m.trades++;
+          this.recordTicket(at / 1000);
+        }
+        const fast = at < m.burstUntilMs;
+        m.nextMs += Math.round(fast ? 340 + 140 * this.random() : 750 + 500 * this.random());
+      }
     }
 
     probability(side) {
@@ -109,7 +234,7 @@
       this.players.set(key, { name, cash: 100, up: 0, down: 0 });
     }
 
-    trade(key, { side, action, quantity = 1, orderId, quoteLimit }) {
+    trade(key, { side, action, quantity = 1, orderId, quoteLimit }, now) {
       const player = this.players.get(key);
       if (!player) error("Join the room first.", 403);
       let reference;
@@ -145,9 +270,8 @@
       if (delta < 0 && player[side] < quantity) error("You can only sell tickets you own.", 409);
       if (delta > 0 && cost > player.cash + 1e-9)
         error("You need more points for this trade.", 409);
-      player.cash = Math.max(0, player.cash - cost);
-      player[side] += delta;
-      this.units[side] += delta;
+      this.fill(player, side, delta, cost);
+      this.recordTicket(this.elapsed(now));
       if (reference) this.executed.set(reference, [side, action, quantity]);
     }
 
@@ -175,7 +299,11 @@
 
     request(path, body, playerKey, isHost, joinUrl) {
       const now = this.clock();
-      if (this.phase === "trading" && now - this.started >= this.duration) this.phase = "settled";
+      if (this.phase === "trading") {
+        const elapsed = this.elapsed(now);
+        this.advanceMarket(elapsed);
+        if (elapsed >= this.duration) this.phase = "settled";
+      }
       switch (path.replace(/^\/api\//, "")) {
         case "state":
           break;
@@ -183,7 +311,7 @@
           this.join(playerKey, body?.name);
           break;
         case "trade":
-          this.trade(playerKey, body || {});
+          this.trade(playerKey, body || {}, now);
           break;
         case "host":
           if (isHost !== true) error("Only the host can use this control.", 403);
@@ -196,8 +324,7 @@
     }
 
     state(now, key, host, joinUrl) {
-      const elapsed =
-        this.started === null ? 0 : Math.min(this.duration, Math.max(0, now - this.started));
+      const elapsed = this.elapsed(now);
       const lastMinute = Math.floor((elapsed * HISTORICAL_MINUTES) / this.duration);
       const prices = this.prices.slice(0, lastMinute + 1);
       const revealed = ["settled", "network", "discussion"].includes(this.phase);
@@ -243,6 +370,9 @@
         quotes: Object.fromEntries(Object.entries(quoteTotals).map(([key, totals]) => [key, totals[0]])),
         quoteTotals,
         players: this.players.size,
+        npcCount: this.market.traders.length,
+        npcTrades: this.market.trades,
+        ticketHistory: this.market.history.slice(),
         me: player ? { ...player, cash: money(player.cash), points: points(player) } : null,
         rankings: Array.from(this.players.values(), (p) => ({
           name: p.name,

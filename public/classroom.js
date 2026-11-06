@@ -168,7 +168,7 @@
     const engine = new BitcoinReplayRoom(await archive.json(), { saved });
     const hostPlayer = playerKey(owner.id);
     function run(path, body, token, isHost, expectedRound) {
-      if (expectedRound && expectedRound !== engine.request("state", null, token, isHost, joinUrl).roundId) {
+      if (expectedRound && expectedRound !== engine.roundId) {
         throw Error("The class started a new round. Please check your position.");
       }
       const state = engine.request(path, body, token, isHost, joinUrl);
@@ -196,6 +196,16 @@
           if (message.path !== "state" && !message.roundId) throw Error("Refresh the room before placing an order.");
           const body = message.path === "trade" ? { ...message.body, orderId: message.id } : message.body;
           const state = run(message.path, body, player, false, message.path === "state" ? null : message.roundId);
+          // The chart can contain hundreds of fills. Send students only the
+          // new part when they already have a matching prefix of this round.
+          const cursor = message.chartCursor;
+          if (cursor && cursor.roundId === state.roundId && Number.isInteger(cursor.index) && cursor.index >= 0) {
+            const point = state.ticketHistory[cursor.index];
+            if (point && point.second === cursor.second && point.price === cursor.price) {
+              state.chartOffset = cursor.index + 1;
+              state.ticketHistory = state.ticketHistory.slice(state.chartOffset);
+            }
+          }
           conn.send({ id: message.id, state });
         } catch (error) {
           if (conn.open && secretFormat.test(message.id)) conn.send({ id: message.id, error: error.message });
@@ -217,7 +227,7 @@
     if (!idFormat.test(id)) throw Error("The room link is incomplete. Ask your host for a new link.");
     const player = playerKey(id);
     const { peer, ready } = openPeer();
-    let connection, connecting, roundId;
+    let connection, connecting, roundId, lastChart;
     const pending = new Map();
 
     function disconnect(conn) {
@@ -279,6 +289,10 @@
       if (path !== "state" && !connection?.open) throw Error("Reconnect and check your position before trading.");
       const conn = await connect();
       const requestId = randomKey();
+      const previous = lastChart;
+      // The newest quarter-second bucket can still change on a student fill.
+      const index = previous ? previous.history.length - 2 : -1;
+      const chartCursor = index >= 0 ? { roundId: previous.id, index, ...previous.history[index] } : null;
       const state = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           pending.delete(requestId);
@@ -291,9 +305,18 @@
           resolve: value => { clearTimeout(timeout); resolve(value); },
           reject: error => { clearTimeout(timeout); reject(error); },
         });
-        try { conn.send({ id: requestId, path, body: body || null, roundId: roundId || null, token: player }); }
+        try { conn.send({ id: requestId, path, body: body || null, roundId: roundId || null, token: player, chartCursor }); }
         catch (error) { pending.get(requestId)?.reject(error); pending.delete(requestId); }
       });
+      if (state.chartOffset !== undefined) {
+        if (!chartCursor || state.roundId !== chartCursor.roundId || state.chartOffset !== index + 1) {
+          lastChart = null;
+          throw Error("Refreshing the ticket chart. Check your position before trading again.");
+        }
+        state.ticketHistory = previous.history.slice(0, state.chartOffset).concat(state.ticketHistory);
+        delete state.chartOffset;
+      }
+      if (Array.isArray(state.ticketHistory)) lastChart = { id: state.roundId, history: state.ticketHistory };
       roundId = state.roundId;
       return state;
     }
