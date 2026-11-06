@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#201b30" />
+    <title>Bitcoin Replay · Classroom market</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="nav">
+        <a class="wordmark" href="/" aria-label="Bitcoin Replay home"
+          ><i aria-hidden="true">₿</i> Bitcoin Replay</a
+        ><button id="guide" class="navlink">How to play <span>↗</span></button>
+      </div>
+    </header>
+    <main>
+      <div class="status" role="status" id="status" hidden></div>
+      <section class="hero">
+        <div class="era"><span class="signal"></span><span id="era">Mid-May 2021</span></div>
+        <h1 id="headline">Will Bitcoin finish higher?</h1>
+        <p id="intro">
+          It’s a volatile week in mid-May 2021. Trade four hours of Bitcoin history in five minutes
+          using classroom points.
+        </p>
+      </section>
+      <section class="hostbar" id="hostbar" hidden>
+        <div><strong>Host controls</strong> <span id="hostHint"></span></div>
+        <div class="hostBtns">
+          <button id="restart" hidden>Reset practice round</button
+          ><button id="invite">Invite class</button><button id="hostAction" class="ink"></button>
+        </div>
+      </section>
+      <section class="layout">
+        <article class="chartcard">
+          <div class="charthead">
+            <div>
+              <div class="smalltitle">Bitcoin <span>/ US Dollar</span></div>
+              <strong id="price">—</strong><small id="priceDelta">Opening price</small>
+            </div>
+            <div class="timer">
+              <span id="clockTitle">Market clock</span><b id="clock">05:00</b>
+            </div>
+          </div>
+          <div class="plot" id="plot">
+            <svg
+              id="graph"
+              role="img"
+              aria-label="Bitcoin price during the historical replay"
+              viewBox="0 0 720 255"
+              preserveAspectRatio="none"
+            ></svg>
+            <div id="lobbyArt" class="lobbyArt">
+              <div class="coin" aria-hidden="true"><span>₿</span></div>
+              <p>Waiting for the opening bell</p>
+            </div>
+          </div>
+          <div class="chartfoot">
+            <span id="openLabel">Opening bell</span
+            ><span id="axisMiddle">Historical time elapsed</span><span id="endLabel">4 hours</span>
+          </div>
+        </article>
+        <aside class="ticket">
+          <div class="ticketTop">
+            <h2 id="ticketHeading">Your position</h2>
+            <span id="seat" class="seat"></span>
+          </div>
+          <form id="joinForm">
+            <label for="team">Choose a team name</label
+            ><input
+              id="team"
+              name="team"
+              autocomplete="off"
+              maxlength="24"
+              placeholder="e.g. Table 3"
+              required
+            />
+            <p>Your team starts with <b>100 points</b>. A winning ticket pays 10 points.</p>
+            <button class="wide primary">Join the market <span>→</span></button>
+          </form>
+          <div id="portfolio" hidden>
+            <div class="balance"><span>Available balance</span><b id="wallet">—</b></div>
+            <div id="tradePanel">
+              <div class="tabs" aria-label="Trade action">
+                <button id="buy" aria-pressed="true">Buy</button
+                ><button id="sell" aria-pressed="false">Sell</button>
+              </div>
+              <div class="order" data-side="up">
+                <div><b>↗ UP</b><small id="upHeld">0 held</small></div>
+                <button id="upOrder">Buy 1</button>
+              </div>
+              <div class="order" data-side="down">
+                <div><b>↘ DOWN</b><small id="downHeld">0 held</small></div>
+                <button id="downOrder">Buy 1</button>
+              </div>
+              <p class="fine" id="orderNote">Each order is one ticket.</p>
+            </div>
+          </div>
+          <p id="notice" role="status"></p>
+          <details class="marketRules">
+            <summary>Settlement rules</summary>
+            <p>
+              UP pays 10 points if the closing BTC price exceeds the opening price. DOWN pays 10 if
+              it closes equal or lower. Other tickets pay zero. Ticket prices respond to class
+              orders. BTC prices follow the historical record.
+            </p>
+          </details>
+        </aside>
+      </section>
+      <section id="result" class="panel result" hidden>
+        <div>
+          <span class="kicker">Closing bell</span>
+          <h2 id="winner"></h2>
+          <p id="dates"></p>
+          <a id="priceSource" target="_blank" rel="noreferrer">See the Coinbase price record ↗</a>
+        </div>
+        <div class="score"><span>Your final points</span><b id="score">—</b></div>
+      </section>
+      <section id="network" class="panel network" hidden>
+        <span class="kicker">Network replay</span>
+        <h2>The same four hours on the blockchain</h2>
+        <p>
+          Bitcoin is digital money. Miners compete to add blocks of transactions to its public
+          record, and other computers check those blocks. Watch each block appear at its recorded
+          time.
+        </p>
+        <div class="metrics">
+          <div><strong id="blocks">0</strong> blocks</div>
+          <div><strong id="txs">0</strong> transactions in blocks</div>
+        </div>
+        <div id="blocktrack"></div>
+        <small id="netCaption"></small>
+        <details>
+          <summary>What do these counts tell us?</summary>
+          <p>
+            Each block contributes its recorded transaction count, including its miner reward
+            transaction. Your classroom trades use virtual points. The electricity used by miners
+            depends on equipment and operating conditions, and the emissions depend on the power
+            supply.
+          </p>
+          <p>
+            <a href="https://bitcoin.org/en/how-it-works" target="_blank" rel="noreferrer"
+              >How Bitcoin works ↗</a
+            >
+            ·
+            <a href="https://ccaf.io/cbnsi/cbeci/methodology" target="_blank" rel="noreferrer"
+              >Cambridge electricity estimates ↗</a
+            >
+          </p>
+        </details>
+      </section>
+      <section id="discussion" class="panel" hidden>
+        <span class="kicker">Class discussion</span>
+        <h2>Who gets a say when a mine runs overnight?</h2>
+        <p>
+          In Granbury, Texas, Cheryl Shadden described hearing a Bitcoin mine day and night. In
+          2024, Earthjustice represented residents seeking a court order to limit the noise and
+          vibration. Their experience raises a question our price chart leaves out.
+        </p>
+        <div class="prompts">
+          <div>
+            <b>At your table</b>
+            <p>
+              Imagine a mine offers compensation to run through the night. What condition would you
+              ask for first? Who could enforce it?
+            </p>
+          </div>
+          <div>
+            <b>Across the room</b>
+            <p>
+              Trade proposals with another table. Which benefits go to miners? Who bears the noise,
+              and what would you need to learn about local electricity and emissions?
+            </p>
+          </div>
+        </div>
+        <a
+          href="https://www.texastribune.org/2024/07/10/texas-bitcoin-mine-noise-power-grid-cryptocurrency/"
+          target="_blank"
+          rel="noreferrer"
+          >Read the Texas Tribune reporting ↗</a
+        >
+        ·
+        <a
+          href="https://earthjustice.org/press/2024/granbury-residents-sue-local-bitcoin-mine-over-health-threatening-noise-pollution"
+          target="_blank"
+          rel="noreferrer"
+          >Hear the residents’ account ↗</a
+        >
+      </section>
+      <details class="panel standings" id="ranks">
+        <summary>Class standings <span id="players"></span></summary>
+        <ol id="ranking"></ol>
+      </details>
+      <footer>
+        <span>Bitcoin Replay</span
+        ><span>Historical BTC · Simulated tickets · Classroom points</span>
+      </footer>
+    </main>
+    <dialog id="dialog">
+      <button id="close" aria-label="Close" class="close">×</button>
+      <div id="dialogText"></div>
+    </dialog>
+  </body>
+</html>
