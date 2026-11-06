@@ -636,6 +636,63 @@ dialog::backdrop {
   height: auto;
   image-rendering: pixelated;
 }
+.hostbar.scan-lobby {
+  display: grid;
+  grid-template-columns: minmax(185px, 235px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: end;
+  justify-content: start;
+  column-gap: clamp(24px, 4vw, 60px);
+  row-gap: 14px;
+  padding: clamp(18px, 2.5vw, 32px);
+}
+#lobbyInvite {
+  grid-row: 1 / 3;
+  text-align: center;
+  align-self: center;
+}
+#lobbyInvite .room-qr {
+  width: 100%;
+  max-width: 235px;
+  margin: 0 auto 5px;
+}
+#lobbyInvite a {
+  font-size: 14px;
+}
+#scanInstructions h2 {
+  font: 500 clamp(30px, 3.3vw, 46px)/1.1 Georgia, serif;
+  letter-spacing: -.045em;
+}
+#scanInstructions p {
+  max-width: 38ch;
+  margin: 9px 0 14px;
+  color: var(--soft);
+}
+.scan-lobby #hostHint {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.scan-lobby .hostBtns {
+  align-self: start;
+}
+@media (max-width: 600px) {
+  .hostbar.scan-lobby {
+    grid-template-columns: minmax(0, 1fr);
+    text-align: center;
+  }
+  #lobbyInvite {
+    grid-row: auto;
+  }
+  #lobbyInvite .room-qr {
+    width: min(210px, 100%);
+  }
+  #scanInstructions p {
+    margin-inline: auto;
+  }
+}
 .invite-actions {
   display: flex;
   flex-wrap: wrap;

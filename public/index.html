@@ -30,7 +30,15 @@
         </p>
       </section>
       <section class="hostbar" id="hostbar" hidden>
-        <div><strong>Host controls</strong> <span id="hostHint"></span></div>
+        <div id="lobbyInvite" hidden></div>
+        <div class="host-info">
+          <div id="scanInstructions" hidden>
+            <h2>Scan to join the room</h2>
+            <p>Scan the code and enter a team name. The host starts the replay when everyone is ready.</p>
+          </div>
+          <strong id="hostLabel">Host controls</strong>
+          <span id="hostHint" role="status"></span>
+        </div>
         <div class="hostBtns">
           <button id="restart" hidden>Reset practice round</button
           ><button id="invite">Class QR code</button><button id="hostAction" class="ink"></button>

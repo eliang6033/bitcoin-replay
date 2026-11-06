@@ -231,6 +231,17 @@ function paint(s) {
   draw(s, net);
   show("lobbyArt", s.phase === "lobby");
   show("hostbar", s.host);
+  const showLobbyInvite = s.host && s.phase === "lobby" && scannable(s.joinUrl);
+  $("hostbar").classList.toggle("scan-lobby", showLobbyInvite);
+  show("lobbyInvite", showLobbyInvite);
+  show("scanInstructions", showLobbyInvite);
+  show("hostLabel", !showLobbyInvite);
+  if (showLobbyInvite && $("lobbyInvite").dataset.url !== s.joinUrl) {
+    const { image, download } = inviteCode(s.joinUrl);
+    $("lobbyInvite").replaceChildren(image, download);
+    $("lobbyInvite").dataset.url = s.joinUrl;
+  }
+  label("invite", showLobbyInvite ? "Share invite link" : "Class QR code");
   show("restart", s.host && s.phase !== "lobby" && s.phase !== "discussion");
   const command = hostActions[s.phase];
   show("hostAction", !!command);
@@ -241,7 +252,8 @@ function paint(s) {
   }
   label(
     "hostHint",
-    s.phase === "network" ? "Same window · 60-second replay" : num.format(s.players) + " joined",
+    s.phase === "network" ? "Same window · 60-second replay" :
+      num.format(s.players) + (s.players === 1 ? " team joined" : " teams joined"),
   );
   show("joinForm", !s.me && !done);
   show("portfolio", !!s.me);
@@ -403,6 +415,17 @@ $("hostAction").onclick = () => {
   if (cmd && (cmd !== "reset" || confirm("Clear all team balances and open a fresh round?")))
     submit("host", { action: cmd });
 };
+function scannable(url) {
+  return !["127.0.0.1", "localhost", "[::1]"].includes(new URL(url).hostname);
+}
+function inviteCode(url) {
+  const download = BitcoinRoomQR.downloadLink(BitcoinRoomQR.create(url));
+  const image = document.createElement("img");
+  image.className = "room-qr";
+  image.alt = "Scan to join this Bitcoin Replay room";
+  image.src = download.href;
+  return { image, download };
+}
 function modal(title, paragraphs, code) {
   const box = $("dialogText"),
     h = document.createElement("h2");
@@ -414,16 +437,11 @@ function modal(title, paragraphs, code) {
     box.append(p);
   }
   if (code) {
-    const localPreview = ["127.0.0.1", "localhost", "[::1]"].includes(new URL(code).hostname);
     let download;
-    if (!localPreview) {
-      const qr = BitcoinRoomQR.create(code);
-      download = BitcoinRoomQR.downloadLink(qr);
-      const image = document.createElement("img");
-      image.className = "room-qr";
-      image.alt = "Scan to join this Bitcoin Replay room";
-      image.src = download.href;
-      box.append(image);
+    if (scannable(code)) {
+      const invite = inviteCode(code);
+      download = invite.download;
+      box.append(invite.image);
     }
     const input = document.createElement("input");
     input.value = code;
