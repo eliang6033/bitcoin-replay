@@ -9,11 +9,12 @@ const label = (id, value) => {
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const num = new Intl.NumberFormat("en-US");
 const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const pts = (n) => Number(n).toFixed(2);
+const practice = value => dollars.format(value * 1000);
 const timer = (t) =>
   String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 let state,
   selectedSide = "up",
+  percent = 25,
   busy = false,
   sequence = 0,
   applied = 0;
@@ -63,20 +64,12 @@ function draw(s, net) {
     const low = Math.min(base, ...values), high = Math.max(base, ...values);
     const pad = Math.max((high - low) * .12, base * .00025);
     const y = value => bottom - (value - low + pad) * span / (high - low + 2 * pad);
-    const plotRight = right - (width < 440 ? 48 : 56);
+    const plotRight = right - 5;
     const x = minute => left + (plotRight - left) * minute / Math.max(1, last.minute);
     const gradient = shape("linearGradient", {id: "btc-fill", x1: 0, y1: 0, x2: 0, y2: 1, gradientUnits: "objectBoundingBox"});
     gradient.append(shape("stop", {offset: 0, "stop-color": "#f6cb73", "stop-opacity": .19}),
       shape("stop", {offset: 1, "stop-color": "#f6cb73", "stop-opacity": 0}));
     const defs = shape("defs", {}); defs.append(gradient); fragment.append(defs);
-    for (const value of [high, low]) {
-      if (high === low) break;
-      const h = y(value);
-      fragment.append(
-        shape("line", {x1: left, x2: plotRight, y1: h, y2: h, stroke: "#4c425a", "stroke-width": 1, "stroke-dasharray": "2 6"}),
-        shape("text", {x: right, y: h + 4, "text-anchor": "end", fill: "#c5bed0", "font-size": 11}, dollars.format(value))
-      );
-    }
     const path = series.map((p, i) => `${i ? "L" : "M"}${x(p.minute).toFixed(1)} ${y(p.price).toFixed(1)}`).join(" ");
     const cx = x(last.minute), cy = y(last.price);
     fragment.append(
@@ -84,7 +77,10 @@ function draw(s, net) {
       shape("line", {x1: left, x2: plotRight, y1: y(base), y2: y(base), stroke: "#c5b3de", "stroke-dasharray": "6 5"}),
       shape("path", {d: path, fill: "none", stroke: "#fbd079", "stroke-width": 2.8, "stroke-linejoin": "round", "stroke-linecap": "round"}),
       shape("circle", {cx, cy, r: 6.5, fill: "#fbd079", "fill-opacity": .19}),
-      shape("circle", {cx, cy, r: 3.4, fill: "#ffda8d"})
+      shape("circle", {cx, cy, r: 3.4, fill: "#ffda8d"}),
+      shape("text", {x: left + 5, y: y(base) - 7, fill: "#e2daec", "font-size": 12,
+        "font-weight": 600, stroke: "#262134", "stroke-width": 4, "paint-order": "stroke",
+        "stroke-linejoin": "round"}, "Start " + dollars.format(base))
     );
   }
   svg.replaceChildren(fragment);
@@ -96,21 +92,18 @@ function drawTicketTape(s) {
   if (!visible) return;
   const lower = selectedSide === "down";
   const series = lower ? history.filter(point => Number.isFinite(point.downPrice)) : history;
-  const name = lower ? "Lower" : "Higher";
+  const name = lower ? "At or below" : "Above";
   const field = lower ? "downPrice" : "price";
   const quote = lower ? s.quotes.buyDown : s.quotes.buyUp;
-  label("tapeHeading", "Price of a " + name + " ticket");
-  label("tapeMeaning", lower
-    ? "Pays 10 points if Bitcoin finishes at or below its start."
-    : "Pays 10 points if Bitcoin finishes above its start.");
+  label("tapeHeading", "One “" + name + "” share costs");
   $("ticketTape").classList.toggle("lower", lower);
-  label("tapeQuote", pts(quote));
+  label("tapeQuote", practice(quote));
   show("tapePlot", series.length > 0);
   show("tapeRange", series.length > 0);
   if (!series.length) return;
   const end = Math.max(0, Math.floor(s.elapsed * 4) / 4, series[series.length - 1].second);
   const first = Math.max(0, end - 30, series[0].second);
-  label("tapeRange", end >= 30 ? "Last 30 seconds" : "Since the start");
+  label("tapeRange", end >= 30 ? "Room bets · share price over the last 30s" : "Room bets · share price since the start");
   const key = [s.roundId, name, end, series.length, quote].join("/");
   if (ticketPlotKey === key) return;
   ticketPlotKey = key;
@@ -127,59 +120,76 @@ function drawTicketTape(s) {
   path += ` H ${x(end).toFixed(2)}`;
   const graph = $("ticketGraph");
   graph.replaceChildren(
-    shape("line", {x1: 0, x2: 298, y1: y(5), y2: y(5), stroke: "#abc8bd", "stroke-dasharray": "2 4"}),
     shape("path", {d: path, fill: "none", stroke: "currentColor", "stroke-width": 2.1, "stroke-linejoin": "round", "vector-effect": "non-scaling-stroke"}),
     shape("circle", {cx: x(end), cy: y(quote), r: 2.6, fill: "currentColor"})
   );
-  graph.setAttribute("aria-label", `A ${name} ticket now costs ${pts(quote)} points on a scale from 0 to 10. The line shows recent prices.`);
+  graph.setAttribute("aria-label", `One “${name}” share costs ${practice(quote)} in practice cash. The line shows how the price for this prediction has changed.`);
 }
 function roomCount(s) {
   const students = num.format(s.players) + (s.players === 1 ? " student team" : " student teams");
   return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
 }
 const quantityControl = $("quantity");
-const ticketLabel = (quantity) => quantity === 1 ? "ticket" : "tickets";
-function selectedQuantity() {
-  return Number(quantityControl?.value || 1);
-}
-const sideName = side => side === "up" ? "Higher" : "Lower";
-function orderQuote(action, side, quantity) {
-  const key = action + (side === "up" ? "Up" : "Down");
-  // Older host tabs provide a single-ticket quote.
-  return state.quoteTotals?.[key]?.[quantity - 1] ?? state.quotes[key];
+const sizeButtons = Array.from(document.querySelectorAll("#sizing [data-size]"));
+const shareLabel = quantity => quantity === 1 ? "share" : "shares";
+const sideName = side => side === "up" ? "Above" : "At or below";
+function orderPreview(action) {
+  if (state.bulk) return state.bulk[selectedSide][action][percent];
+  // Hosts running a previous release still quote purchases of 1–10 shares.
+  const quantity = state.quoteTotals ? Number(quantityControl.value) : 1;
+  const key = action + (selectedSide === "up" ? "Up" : "Down");
+  return {quantity, total: state.quoteTotals?.[key]?.[quantity - 1] ?? state.quotes[key]};
 }
 function executionLimit(action, quote, quantity) {
   if (!state.npcCount) return quote;
   const allowance = quantity * quoteAllowance;
-  return action === "buy"
-    ? Math.min(state.me?.cash ?? 100, quantity * 10, Math.floor((quote + allowance) * 100) / 100)
-    : Math.max(0, Math.ceil((quote - allowance) * 100) / 100);
+  if (action === "buy") {
+    const budget = (state.me?.cash ?? 100) * (state.bulk ? percent / 100 : 1);
+    return Math.min(budget, quantity * 10, quote + allowance);
+  }
+  return Math.max(0, quote - allowance);
 }
 function setOrders() {
-  if (!state) return;
   const s = state;
+  if (!s || !s.me) return;
   if (!s.quoteTotals) quantityControl.value = "1";
   quantityControl.disabled = busy || !s.quoteTotals;
+  show("sizing", Boolean(s.bulk));
+  show("legacySize", !s.bulk);
+  show("sizeInfo", Boolean(s.bulk));
+  for (const button of sizeButtons) {
+    button.setAttribute("aria-pressed", Number(button.dataset.size) === percent);
+    button.disabled = busy;
+  }
   const name = sideName(selectedSide);
-  const quantity = selectedQuantity();
-  const owned = s.me?.[selectedSide] ?? 0;
-  label("owned", `You own ${owned} ${name}`);
+  const owned = s.me[selectedSide];
+  label("owned", `You hold ${owned} “${name}” ${shareLabel(owned)}`);
   for (const side of ["up", "down"]) {
     const pick = $(side === "up" ? "pickUp" : "pickDown");
     pick.setAttribute("aria-pressed", side === selectedSide);
     pick.disabled = busy;
   }
   for (const action of ["buy", "sell"]) {
-    const verb = action === "buy" ? "Buy" : "Sell";
-    const quote = orderQuote(action, selectedSide, quantity);
-    const limit = executionLimit(action, quote, quantity);
-    const bound = action === "buy" ? "Maximum cost" : "Minimum proceeds";
-    label(action + "Label", verb + " " + name);
-    label(action + "Price", (action === "buy" ? "Pay " : "Get ") + (s.npcCount ? "≈ " : "") + pts(quote) + " pts");
-    $(action).setAttribute("aria-label", `${verb} ${quantity} ${name} ${ticketLabel(quantity)} for about ${pts(quote)} points total`);
-    $(action).title = s.npcCount ? `${bound} for this order: ${pts(limit)} points` : "";
-    $(action).disabled = busy || s.phase !== "trading" || !s.me ||
-      (action === "buy" ? quote > s.me.cash : owned < quantity);
+    const {quantity, total} = orderPreview(action);
+    const buying = action === "buy";
+    const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
+    const verb = buying ? "Place bet" : "Cash out";
+    const cost = (buying ? "Pay ≈ " : "Get ≈ ") + practice(total);
+    const unavailable = buying ? "Not enough cash" : owned ? "Choose a larger size" : "No shares yet";
+    label(action + "Price", canFill ? cost : unavailable);
+    $(action).setAttribute("aria-label", canFill
+      ? `${verb}, ${quantity} “${name}” ${shareLabel(quantity)}. ${cost}.`
+      : verb + ". " + unavailable);
+    $(action).title = canFill ? `${quantity} ${shareLabel(quantity)} · ${buying ? "Maximum cost" : "Minimum return"} ${practice(executionLimit(action, total, quantity))}` : "";
+    $(action).disabled = busy || s.phase !== "trading" || !canFill;
+  }
+  const all = s.bulk?.cashOut;
+  show("cashOutAll", Boolean(all?.quantity) && s.phase === "trading");
+  if (all?.quantity) {
+    label("cashOutAll", "Cash out everything ≈ " + practice(all.total));
+    $("cashOutAll").disabled = busy;
+    $("cashOutAll").setAttribute("aria-label", `Cash out everything, all ${all.quantity} ${shareLabel(all.quantity)} for about ${practice(all.total)}`);
+    $("cashOutAll").title = "Sell all shares in both predictions for about " + practice(all.total);
   }
 }
 function paint(s) {
@@ -190,6 +200,7 @@ function paint(s) {
     inGame = s.phase === "trading";
   if (old && old.roundId !== s.roundId) {
     selectedSide = "up";
+    percent = 25;
     if (quantityControl) quantityControl.value = "1";
     label("notice", "");
     $("ranks").open = false;
@@ -204,7 +215,7 @@ function paint(s) {
       ? "Watch blocks from the same four historical hours, then consider who lives alongside mining infrastructure."
       : done
         ? "The historical window is open. Compare your choices before viewing the network replay."
-        : "Four hours of real Bitcoin prices in five minutes. Use classroom points to predict where the price will finish.",
+        : "Watch four hours of real Bitcoin prices in five minutes. Make your prediction with $100,000 in practice cash.",
   );
   label(
     "era",
@@ -218,7 +229,7 @@ function paint(s) {
       : "Mid-May 2021",
   );
   label("price", net ? num.format(s.network.blocks.length) + " blocks" : dollars.format(s.lastPrice));
-  label("assetLabel", net ? "Bitcoin network" : "Bitcoin price");
+  label("assetLabel", net ? "Bitcoin network" : "Historical Bitcoin price");
   show("currency", !net);
   const diff = s.lastPrice - s.startPrice;
   const distance = Math.abs(diff) < 1 ? "Less than $1" : dollars.format(Math.abs(diff));
@@ -232,8 +243,8 @@ function paint(s) {
     : `Bitcoin started at ${usd.format(s.startPrice)} and is now ${usd.format(s.lastPrice)}.`);
   label("openLabel", net ? "0 hours" : "Start");
   label("endLabel", net ? "4 hours" : done ? "Finish" : "Now");
-  label("baselineLabel", net ? "Taller bar = more transactions" : "Starting price " + dollars.format(s.startPrice));
-  $("baselineLabel").classList.toggle("reference", !net);
+  label("baselineLabel", "Taller bar = more transactions");
+  show("baselineLabel", net);
   draw(s, net);
   drawTicketTape(s);
   label("traderCount", roomCount(s));
@@ -264,21 +275,21 @@ function paint(s) {
       roomCount(s),
   );
   show("joinForm", !s.me && !done);
-  show("portfolio", !!s.me);
+  show("walletPanel", !!s.me);
+  show("prediction", !!s.me && !done);
+  show("tradePanel", !!s.me && !done);
   label("seat", s.me ? s.me.name : done ? "Spectator" : "");
   show("positionReturn", Boolean(s.me && (s.me.up || s.me.down || s.me.cash !== 100)) && inGame);
   if (s.me) {
-    label("wallet", pts(done ? s.me.points : s.me.cash) + " pts");
-    show("tradePanel", !done);
-    label("balanceTitle", done ? "Final points" : "Points left");
+    label("wallet", practice(done ? s.me.points : s.me.cash));
     if (inGame) {
-      const gain = s.me.points - 100;
-      label("gain", (gain < 0 ? "−" : "+") + pts(Math.abs(gain)) + " pts");
+      const gain = (s.bulk ? s.me.cash + s.bulk.cashOut.total : s.me.points) - 100;
+      label("gain", (gain < 0 ? "−" : "+") + practice(Math.abs(gain)));
       $("gain").classList.toggle("loss", gain < 0);
     }
   }
-  label("ticketHeading", done ? "Your result" : s.me ? "Trade tickets" : "Join the market");
-  const note = !s.quoteTotals ? "This room supports one ticket at a time." :
+  label("ticketHeading", done ? "Final practice balance" : s.me ? "Your practice cash" : "Join the market");
+  const note = !s.quoteTotals ? "This host supports one share at a time." :
     s.phase === "lobby" ? "You can trade when the host starts the clock." : "";
   label("orderNote", note);
   show("orderNote", Boolean(note));
@@ -289,7 +300,7 @@ function paint(s) {
   show("discussion", s.phase === "discussion");
   if (done) {
     $("priceSource").href = s.reveal.source;
-    label("winner", sideName(s.reveal.winner) + " tickets pay 10 points");
+    label("winner", "“" + sideName(s.reveal.winner) + "” wins · $10,000 per share");
     const begin = s.reveal.startUtc,
       end = s.reveal.endUtc;
     label(
@@ -304,7 +315,7 @@ function paint(s) {
         " → " +
         usd.format(s.lastPrice),
     );
-    label("score", s.me ? pts(s.me.points) : "—");
+    label("score", s.me ? practice(s.me.points) : "—");
   }
   if (net) {
     label("blocks", s.network.blocks.length);
@@ -334,7 +345,7 @@ function paint(s) {
   const rows = s.rankings.map((r) => {
     const li = document.createElement("li"),
       b = document.createElement("b");
-    b.textContent = pts(r.points) + " pts";
+    b.textContent = practice(r.points);
     li.append(document.createTextNode(r.name), b);
     return li;
   });
@@ -377,8 +388,10 @@ async function submit(path, body) {
     label(
       "notice",
       path === "trade"
-        ? (body.action === "buy" ? "Bought" : "Sold") +
-            ` ${body.quantity} ${sideName(body.side)} ${ticketLabel(body.quantity)} for ${pts(Math.abs(updated.me.cash - previousCash))} pts total.`
+        ? (body.action === "sellAll"
+            ? "Cashed out all " + body.quantity + " " + shareLabel(body.quantity)
+            : (body.action === "buy" ? "Bet on" : "Cashed out") + " “" + sideName(body.side) + "” · " + body.quantity + " " + shareLabel(body.quantity)) +
+          " for " + practice(Math.abs(updated.me.cash - previousCash)) + "."
         : "",
     );
   } catch (e) {
@@ -388,6 +401,8 @@ async function submit(path, body) {
     }
     const message = e.message.startsWith("Another team traded")
       ? "The price changed too quickly. Check the new price and tap again."
+      : e.message === "You need more points for this trade." ? "You need more practice cash for this bet."
+      : e.message === "You can only sell tickets you own." ? "You can cash out only shares you own."
       : e.message;
     label("notice", message);
     if (path !== "trade") {
@@ -421,13 +436,22 @@ for (const side of ["up", "down"]) {
   };
 }
 quantityControl.onchange = setOrders;
-for (const action of ["buy", "sell"]) {
-  $(action).onclick = () => {
-    const quantity = selectedQuantity();
-    const quote = orderQuote(action, selectedSide, quantity);
-    submit("trade", {side: selectedSide, action, quantity, quoteLimit: executionLimit(action, quote, quantity)});
+for (const button of sizeButtons) {
+  button.onclick = () => {
+    percent = Number(button.dataset.size);
+    setOrders();
   };
 }
+for (const action of ["buy", "sell"]) {
+  $(action).onclick = () => {
+    const {quantity, total} = orderPreview(action);
+    submit("trade", {side: selectedSide, action, quantity, quoteLimit: executionLimit(action, total, quantity)});
+  };
+}
+$("cashOutAll").onclick = () => {
+  const {quantity, total} = state.bulk.cashOut;
+  submit("trade", {side: "both", action: "sellAll", quantity, quoteLimit: executionLimit("sell", total, quantity)});
+};
 new ResizeObserver(() => {
   if (state) draw(state, ["network", "discussion"].includes(state.phase));
 }).observe($("plot"));
@@ -494,10 +518,9 @@ function modal(title, paragraphs, code) {
 }
 $("guide").onclick = () =>
   modal("How to play", [
-    "Join with a team name for 100 classroom points. You’ll watch four hours of real Bitcoin prices in five minutes.",
-    "Choose Higher or Lower. Buy a ticket if you think Bitcoin will finish on that side of its starting price. You can sell at the current ticket price before the clock runs out.",
-    "Each winning ticket pays 10 points. Other tickets pay zero. If Bitcoin ends exactly where it started, Lower wins.",
-    "The gold line shows Bitcoin’s historical dollar price. The ticket chart shows what one ticket costs in your room. Your trades and the trades of 20 simulated traders move that price.",
+    "Join a team to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
+    "Choose where Bitcoin will finish. Your pick has its own price, shown on the small chart. Each share you hold at the end pays $10,000 in practice cash if you are right and $0 if you are wrong. A tie goes to “At or below.”",
+    "Place a bet with part of your cash. You can cash out shares while the clock is running. You and 20 simulated traders move the share prices together. You can spend only the cash you have.",
   ]);
 $("invite").onclick = () =>
   modal(

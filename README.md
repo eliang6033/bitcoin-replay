@@ -10,7 +10,7 @@ Keep the host tab open and the device awake. On GitHub Pages the host's browser 
 
 Each new round includes **20 simulated traders**. They look at how far Bitcoin has moved from its starting price, its recent direction and the time left. They trade faster when the price moves sharply. They see the same historical prices as the class. A student's purchase or sale changes the price everyone can trade at.
 
-Read the **Bitcoin price** chart to see whether Bitcoin is above or below its starting price. Choose **Higher** or **Lower** to see what one ticket on that side costs in classroom points. A winning ticket pays 10 points. For example, buying one ticket for 3 points and selling it for 6 earns 3 points without waiting for the final result. These ticket prices come from the game. The Bitcoin prices come from Coinbase.
+Each team gets **$100,000 in practice cash**. The gold line is the historical price of one bitcoin in US dollars. The labeled horizontal line marks where Bitcoin started. The smaller chart shows what it costs in practice dollars to back the selected outcome once. That price changes when classmates and simulated traders act. For example, a prediction bought for $4,000 pays $10,000 in total if correct or $0 if wrong. It can also be sold before the clock runs out.
 
 ## Try the local edition on one computer
 
@@ -26,8 +26,8 @@ Open the **Host** link printed in the terminal. Enter a practice team name, sele
 
 1. Stop the practice server with Control-C and run `python3 server.py --bind 0.0.0.0` on the presenting laptop. If the preview is already using the default port and you want to keep it, add `--port 5190`.
 2. Open the new **Host** link on that laptop. Project the lobby to display the student QR. **Share invite link** also gives the student address. Everyone must be on a network that lets devices reach the laptop. Try the address on a phone before class. If campus Wi-Fi isolates devices, use a shared hotspot or let the class play by table on the projected screen.
-3. Ask students to join with a team nickname. Each team starts with 100 points. Pick Higher or Lower, choose 1–10 tickets, and use the adjacent Buy and Sell buttons. Teams can sell tickets they own or hold them to the end. Both the purchase cost and sale proceeds depend on trades in the room.
-4. Start the clock when the class is ready. Five classroom minutes represent four historical hours. At the closing bell the site reveals the exact UTC window and settles tickets. Each winning ticket pays 10 points. Lower wins a tie.
+3. Ask students to join with a team nickname. Pick where Bitcoin will finish relative to its starting price. Select 10%, 25%, 50%, or 100% and place a bet. The game buys as many whole shares as fit that share of the team's available practice cash. To exit early, cash out part of a position or close every open prediction in one action. Check the amount on the button for the whole order.
+4. Start the clock when the class is ready. Five classroom minutes represent four historical hours. At the closing bell the site reveals the exact UTC window. Each winning share pays $10,000 in practice cash. The “at or below” outcome wins a tie. Teams can spend only the cash they have and sell only shares they own.
 5. Select **Replay the network**. Over 60 seconds the website reveals the blocks recorded in those same four historical hours. Then select **Open discussion** and compare proposals for a community living near a mine.
 
 Keep the local server running and the presenting laptop awake. Reloading the page keeps a team in the round in the same browser. Resetting the local room or stopping the Python server clears all balances.

@@ -148,6 +148,24 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
     assert.deepEqual(view.ticketHistory, classViews[0].ticketHistory);
     assert.equal(view.npcTrades, classViews[0].npcTrades);
   }
+  // A student spends their practice budget in a single request. Both their
+  // purchase and their exit change the quotes in a different student's tab.
+  const openingQuote = classViews[0].bulk.down.buy[100];
+  const bought = await fromOldQR.request("trade", {
+    side: "down", action: "buy", quantity: openingQuote.quantity, quoteLimit: openingQuote.total,
+  });
+  assert.equal(bought.me.down, openingQuote.quantity);
+  assert.ok(bought.me.cash >= 0);
+  const classmate = await teams[0].request("state");
+  assert.equal(classmate.quotes.buyDown, bought.quotes.buyDown);
+  assert.ok(classmate.quotes.buyDown > classViews[0].quotes.buyDown);
+  const exit = bought.bulk.cashOut;
+  const liquidated = await fromOldQR.request("trade", {
+    side: "both", action: "sellAll", quantity: exit.quantity, quoteLimit: exit.total,
+  });
+  assert.equal(liquidated.me.down, 0);
+  assert.ok(Math.abs(liquidated.me.cash - 100) < .0002);
+  assert.deepEqual((await teams[0].request("state")).quotes, classViews[0].quotes);
   restOfClass.forEach(person => person.dispose());
   reopened.dispose(); guest.dispose();
   await new Promise(resolve => setImmediate(resolve));

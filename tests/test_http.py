@@ -71,6 +71,35 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(self.request("/api/state", cookie=player)[2]["network"]["txCount"], 53191)
         self.assertEqual(self.request("/api/host", {"action":"discussion"}, host)[2]["phase"], "discussion")
 
+    def test_full_wallet_orders_and_one_click_exit_over_http(self):
+        _, headers, _ = self.request("/host/test-host-key")
+        host = headers["Set-Cookie"].split(";")[0]
+        _, headers, _ = self.request("/api/join", {"name": "Table 1"})
+        player = headers["Set-Cookie"].split(";")[0]
+        self.request("/api/host", {"action": "start"}, host)
+        state = self.request("/api/state", cookie=player)[2]
+        for side, percent in [("up", "25"), ("down", "100")]:
+            quote = state["bulk"][side]["buy"][percent]
+            self.assertGreater(quote["quantity"], 0)
+            if percent == "100":
+                self.assertGreater(quote["quantity"], 10)
+            body = {"side": side, "action": "buy", "quantity": quote["quantity"],
+                    "quoteLimit": quote["total"], "orderId": "buy-" + side}
+            code, _, state = self.request("/api/trade", body, player)
+            self.assertEqual(code, 200, state)
+            self.assertGreaterEqual(state["me"]["cash"], 0)
+        self.assertGreater(state["me"]["up"], 0)
+        self.assertGreater(state["me"]["down"], 0)
+        exit_quote = state["bulk"]["cashOut"]
+        self.assertEqual(exit_quote["quantity"], state["me"]["up"] + state["me"]["down"])
+        body = {"side": "both", "action": "sellAll", "quantity": exit_quote["quantity"],
+                "quoteLimit": exit_quote["total"], "orderId": "exit-both"}
+        code, _, closed = self.request("/api/trade", body, player)
+        self.assertEqual(code, 200, closed)
+        self.assertEqual((closed["me"]["up"], closed["me"]["down"]), (0, 0))
+        self.assertAlmostEqual(closed["me"]["cash"], 100, places=3)
+        self.assertEqual(self.request("/api/trade", body, player)[2]["me"], closed["me"])
+
 
 if __name__ == "__main__":
     unittest.main()

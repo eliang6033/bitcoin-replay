@@ -5,6 +5,7 @@
   const LIQUIDITY = 18;
   const LEGACY_LIQUIDITY = 40;
   const MAX_ORDER = 10;
+  const PERCENTAGES = [10, 25, 50, 100];
   const NETWORK_SECONDS = 60;
   const HISTORICAL_MINUTES = 240;
   const NPC_COUNT = 20;
@@ -219,7 +220,50 @@
 
     quote(side, delta) {
       const depth = this.market.liquidity;
-      return PAYOUT * depth * Math.log1p(this.probability(side) * Math.expm1(delta / depth));
+      const other = side === "up" ? "down" : "up";
+      const before = this.units[side] - this.units[other], after = before + delta;
+      // LMSR cost difference. Splitting off the linear part keeps even a full
+      // liquidation finite when almost everyone previously backed one side.
+      const premium = n => Math.log1p(Math.exp(-Math.abs(n) / depth));
+      return PAYOUT * (Math.max(after, 0) - Math.max(before, 0) + depth * (premium(after) - premium(before)));
+    }
+
+    affordable(side, budget) {
+      if (budget <= 0) return 0;
+      const other = side === "up" ? "down" : "up";
+      // After the two outcomes are level, every further purchase costs at
+      // least half the payout. This bounds the search even at a tiny quote.
+      let high = Math.max(0, this.units[other] - this.units[side]) + Math.ceil(2 * budget / PAYOUT);
+      let low = 0;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        if (this.quote(side, mid) <= budget + 1e-9) low = mid;
+        else high = mid - 1;
+      }
+      return low;
+    }
+
+    cashOutValue(player) {
+      // One of every matched Higher/Lower pair pays out. Removing pairs
+      // leaves the book's odds unchanged, so only unpaired shares move them.
+      const paired = Math.min(player.up, player.down);
+      const side = player.up > player.down ? "up" : "down";
+      return paired * PAYOUT - this.quote(side, -Math.abs(player.up - player.down));
+    }
+
+    bulkQuotes(player) {
+      const bulk = { cashOut: { quantity: player.up + player.down, total: money(this.cashOutValue(player)) } };
+      for (const side of SIDES) {
+        const buy = {}, sell = {};
+        for (const percent of PERCENTAGES) {
+          const nBuy = this.affordable(side, player.cash * percent / 100);
+          const nSell = player[side] ? Math.max(1, Math.floor(player[side] * percent / 100)) : 0;
+          buy[percent] = { quantity: nBuy, total: money(this.quote(side, nBuy)) };
+          sell[percent] = { quantity: nSell, total: money(Math.abs(this.quote(side, -nSell))) };
+        }
+        bulk[side] = { buy, sell };
+      }
+      return bulk;
     }
 
     join(key, name) {
@@ -258,25 +302,34 @@
         }
       }
       if (this.phase !== "trading") error("Trading is closed.", 409);
-      if (!["up", "down"].includes(side) || !["buy", "sell"].includes(action)) {
-        error("Choose Buy or Sell and a side.");
+      const all = side === "both" && action === "sellAll";
+      if (!all && (!SIDES.includes(side) || !["buy", "sell"].includes(action))) {
+        error("Choose an outcome and a trade.");
       }
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ORDER) {
-        error("Choose 1 to 10 tickets per order.");
+      if (!Number.isSafeInteger(quantity) || quantity < 1) error("Choose a positive whole number of shares.");
+      if (all && quantity !== player.up + player.down) {
+        error("Your holdings changed. Check your balance and try again.", 409);
       }
       const delta = action === "buy" ? quantity : -quantity;
-      const cost = this.quote(side, delta);
+      if (!all && delta < 0 && player[side] < quantity) error("You can only sell shares you own.", 409);
+      const cost = all ? -this.cashOutValue(player) : this.quote(side, delta);
       if (quoteLimit != null) {
-        if (!Number.isFinite(quoteLimit) || quoteLimit < 0 || quoteLimit > MAX_ORDER * PAYOUT)
+        if (!Number.isFinite(quoteLimit) || quoteLimit < 0 || quoteLimit > quantity * PAYOUT)
           error("Invalid total quote.");
         const total = money(Math.abs(cost));
         if (action === "buy" ? total > quoteLimit : total < quoteLimit)
           error("Another team traded first. Check the new total and try again.", 409);
       }
-      if (delta < 0 && player[side] < quantity) error("You can only sell tickets you own.", 409);
-      if (delta > 0 && cost > player.cash + 1e-9)
-        error("You need more points for this trade.", 409);
-      this.fill(player, side, delta, cost);
+      if (cost > player.cash + 1e-9) error("You need more practice cash for this trade.", 409);
+      if (all) {
+        for (const outcome of SIDES) {
+          this.units[outcome] -= player[outcome];
+          player[outcome] = 0;
+        }
+        player.cash -= cost;
+      } else {
+        this.fill(player, side, delta, cost);
+      }
       this.recordTicket(this.elapsed(now));
       if (reference) this.executed.set(reference, [side, action, quantity]);
     }
@@ -338,7 +391,7 @@
       const upPrice = PAYOUT * this.probability("up");
       const points = (p) =>
         money(
-          p.cash + (revealed ? p[winner] * PAYOUT : p.up * upPrice + p.down * (PAYOUT - upPrice)),
+          p.cash + (revealed ? p[winner] * PAYOUT : this.cashOutValue(p)),
         );
       const player = this.players.get(key);
       let networkElapsed =
@@ -375,6 +428,7 @@
         downPrice: money(PAYOUT - upPrice),
         quotes: Object.fromEntries(Object.entries(quoteTotals).map(([key, totals]) => [key, totals[0]])),
         quoteTotals,
+        bulk: player && !revealed ? this.bulkQuotes(player) : null,
         players: this.players.size,
         npcCount: this.market.traders.length,
         npcTrades: this.market.trades,

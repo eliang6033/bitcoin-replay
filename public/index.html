@@ -25,7 +25,7 @@
         <div class="era"><span class="signal"></span><span id="era">Mid-May 2021</span></div>
         <h1 id="headline">Will Bitcoin finish higher?</h1>
         <p id="intro">
-          Four hours of real Bitcoin prices in five minutes. Use classroom points to predict where the price will finish.
+          Watch four hours of real Bitcoin prices in five minutes. Make your prediction with $100,000 in practice cash.
         </p>
       </section>
       <section class="hostbar" id="hostbar" hidden>
@@ -47,7 +47,7 @@
         <article class="chartcard">
           <div class="charthead">
             <div>
-              <div class="smalltitle"><b id="assetLabel">Bitcoin price</b> <span id="currency">USD</span></div>
+              <div class="smalltitle"><b id="assetLabel">Historical Bitcoin price</b> <span id="currency">USD</span></div>
               <strong id="price">—</strong><small id="priceDelta">Historical replay</small>
             </div>
             <div class="timer">
@@ -68,12 +68,12 @@
             </div>
           </div>
           <div class="chartfoot">
-            <span id="openLabel">Start</span><span id="baselineLabel" class="reference">Starting price</span><span id="endLabel">Now</span>
+            <span id="openLabel">Start</span><span id="baselineLabel" hidden></span><span id="endLabel">Now</span>
           </div>
         </article>
         <aside class="ticket">
           <div class="ticketTop">
-            <h2 id="ticketHeading">Trade tickets</h2>
+            <h2 id="ticketHeading">Your prediction</h2>
             <span id="seat" class="seat"></span>
           </div>
           <div id="launcher" hidden>
@@ -90,59 +90,67 @@
               placeholder="e.g. Table 3"
               required
             />
-            <p>Your team starts with <b>100 points</b>.</p>
+            <p>Your team starts with <b>$100,000 in practice cash</b>.</p>
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
+          <div class="wallet" id="walletPanel" hidden>
+            <b id="wallet">—</b>
+            <div id="positionReturn" hidden><span>Est. gain / loss</span> <b id="gain">—</b></div>
+          </div>
+          <fieldset class="prediction" id="prediction" hidden>
+            <legend>Where will Bitcoin finish?</legend>
+            <div class="pick-row">
+              <button type="button" id="pickUp" aria-pressed="true"><span aria-hidden="true">↗</span> Above the start</button>
+              <button type="button" id="pickDown" aria-pressed="false"><span aria-hidden="true">↘</span> At or below</button>
+            </div>
+          </fieldset>
           <figure class="ticket-tape" id="ticketTape" hidden>
             <figcaption>
-              <h3 id="tapeHeading">Price of a Higher ticket</h3>
-              <strong><span id="tapeQuote">—</span> <small>pts</small></strong>
+              <h3 id="tapeHeading">Cost of one share</h3>
+              <strong id="tapeQuote">—</strong>
             </figcaption>
+            <p id="tapeMeaning">Each share pays $10,000 total if your pick is right, or $0 if it’s wrong.</p>
             <div class="tape-plot" id="tapePlot">
               <svg id="ticketGraph" viewBox="0 0 300 56" preserveAspectRatio="none"
-                role="img" aria-label="Higher ticket price in classroom points"></svg>
-              <div class="tape-scale" aria-hidden="true"><span>10</span><span>0</span></div>
+                role="img" aria-label="Price of one prediction share in practice dollars"></svg>
             </div>
             <small id="tapeRange" class="tape-range"></small>
-            <p id="tapeMeaning">If Bitcoin finishes above its start, each Higher ticket pays 10 points.</p>
           </figure>
-          <div id="portfolio" hidden>
-            <div id="tradePanel">
-              <fieldset class="prediction">
-                <legend>I think Bitcoin will finish…</legend>
-                <div class="pick-row">
-                  <button type="button" id="pickUp" aria-pressed="true"><span aria-hidden="true">↗</span> Higher</button>
-                  <button type="button" id="pickDown" aria-pressed="false"><span aria-hidden="true">↘</span> Lower</button>
-                </div>
-              </fieldset>
-              <div class="quantity-control">
-                <label for="quantity">Tickets</label>
-                <select id="quantity">
-                  <option>1</option><option>2</option><option>3</option><option>4</option>
-                  <option>5</option><option>6</option><option>7</option><option>8</option>
-                  <option>9</option><option>10</option>
-                </select>
-                <span id="owned"></span>
+          <div id="tradePanel" hidden>
+            <fieldset class="sizing" id="sizing">
+              <legend>How much of your cash or shares?</legend>
+              <div class="size-row">
+                <button type="button" data-size="10" aria-pressed="false">10%</button>
+                <button type="button" data-size="25" aria-pressed="true">25%</button>
+                <button type="button" data-size="50" aria-pressed="false">50%</button>
+                <button type="button" data-size="100" aria-pressed="false">100%</button>
               </div>
-              <div class="trade-actions">
-                <button id="buy"><b id="buyLabel">Buy Higher</b><small id="buyPrice"></small></button>
-                <button id="sell"><b id="sellLabel">Sell Higher</b><small id="sellPrice"></small></button>
-              </div>
-              <p class="fine" id="orderNote" hidden></p>
+            </fieldset>
+            <div class="quantity-control" id="legacySize" hidden>
+              <label for="quantity">Number of shares</label>
+              <select id="quantity">
+                <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+              </select>
             </div>
-            <div class="wallet">
-              <div><span id="balanceTitle">Points left</span><b id="wallet">—</b></div>
-              <div id="positionReturn" hidden title="Your tickets are valued at the current market price until the round ends.">
-                <span>Est. profit / loss</span><b id="gain">—</b>
-              </div>
+            <div class="trade-actions">
+              <button id="buy"><b>Place bet</b><small id="buyPrice"></small></button>
+              <button id="sell"><b>Cash out</b><small id="sellPrice"></small></button>
             </div>
+            <div class="position-line">
+              <span id="owned"></span>
+              <button type="button" class="cashout-all" id="cashOutAll" hidden>Cash out everything</button>
+            </div>
+            <p class="fine" id="orderNote" hidden></p>
           </div>
           <p id="notice" role="status"></p>
           <details class="marketRules">
-            <summary>How tickets work</summary>
-            <p>Compare Bitcoin’s final price to its starting price. Higher wins if it finishes above the start. Lower wins if it finishes below or exactly at the start. A winning ticket pays 10 points. Other tickets pay zero.</p>
-            <p>You can sell tickets you own before time runs out. Everyone in the room trades at the same market. The two buttons show the estimated total for your chosen number of tickets.</p>
-            <p id="limitInfo" hidden>A trade can fill up to 0.15 points per ticket above the displayed buy price or below the displayed sell price. If the price changes more than that, you can try again at the new price.</p>
+            <summary>How the money works</summary>
+            <p>Pick where Bitcoin will finish compared with its starting price. Each correct share pays $10,000 in practice cash at the end. A wrong share pays $0. A tie goes to “At or below.”</p>
+            <p>The small chart tracks what one share of your pick costs in this room. For example, if you pay $4,000 for one share and cash it out for $6,000, you earn $2,000.</p>
+            <p id="sizeInfo">Choose a percentage of your available cash to place a bet, or the same percentage of your shares to cash out. Orders use whole shares. “Cash out everything” sells both predictions in one step.</p>
+            <p>You can spend only the practice cash in your account. The most you can lose on a bet is what you paid.</p>
+            <p id="limitInfo" hidden>Prices move as the class trades. A bet can cost up to $150 more per share than the estimate, within your spending limit. Cashing out can return up to $150 less per share. A larger change asks you to check the new price.</p>
             <p id="traderCount"></p>
           </details>
         </aside>
@@ -154,7 +162,7 @@
           <p id="dates"></p>
           <a id="priceSource" target="_blank" rel="noreferrer">See the Coinbase price record ↗</a>
         </div>
-        <div class="score"><span>Your final points</span><b id="score">—</b></div>
+        <div class="score"><span>Your final balance</span><b id="score">—</b></div>
       </section>
       <section id="network" class="panel network" hidden>
         <span class="kicker">Network replay</span>
@@ -174,7 +182,7 @@
           <summary>What do these counts tell us?</summary>
           <p>
             Each block contributes its recorded transaction count, including its miner reward
-            transaction. Your classroom trades use virtual points. The electricity used by miners
+            transaction. Your classroom trades use practice dollars. The electricity used by miners
             depends on equipment and operating conditions, and the emissions depend on the power
             supply.
           </p>
@@ -233,7 +241,7 @@
       </details>
       <footer>
         <span>Bitcoin Replay</span
-        ><span>Historical BTC · Simulated tickets · Classroom points</span>
+        ><span>Historical Bitcoin prices · Practice money</span>
       </footer>
     </main>
     <dialog id="dialog">

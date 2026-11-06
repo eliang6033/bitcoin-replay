@@ -342,17 +342,6 @@ footer {
   font-size: 14px;
   color: var(--soft);
 }
-.chartfoot .reference {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.chartfoot .reference::before {
-  content: "";
-  display: inline-block;
-  width: 21px;
-  border-top: 2px dashed #c5b3de;
-}
 .smalltitle { font-size: 15px; }
 .smalltitle span { margin-left: 3px; font: 11px ui-monospace, monospace; }
 .charthead strong { margin: 4px 0 1px; }
@@ -384,19 +373,8 @@ footer {
   letter-spacing: -.025em;
   font-variant-numeric: tabular-nums;
 }
-.ticket-tape figcaption strong small { font-size: 12px; font-weight: 550; }
 .tape-plot { margin-top: 6px; }
-.tape-plot svg { width: 0; flex: 1 1 auto; height: 48px; }
-.tape-scale {
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: end;
-  justify-content: space-between;
-  padding: 1px 0;
-  color: #635f65;
-  font: 10px/1.1 ui-monospace, monospace;
-}
+.tape-plot svg { width: 0; flex: 1 1 auto; height: 35px; }
 .tape-range {
   display: block;
   font-size: 10px;
@@ -423,8 +401,8 @@ footer {
 .marketRules summary {
   font-size: 13px;
 }
-.prediction { min-width: 0; border: 0; margin: 0; padding: 0; }
-.prediction legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
+.prediction, .sizing { min-width: 0; border: 0; margin: 0; padding: 0; }
+.prediction legend, .sizing legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
 .pick-row, .trade-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -461,14 +439,28 @@ footer {
 .wallet {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  gap: 6px 14px;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 4px 12px;
-  margin-top: 12px;
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 15px;
+  padding: 2px 0 13px;
 }
-.wallet div { display: flex; gap: 5px; align-items: baseline; }
-.wallet span { color: var(--soft); font-size: 12px; }
-.wallet b { font-size: 13px; font-variant-numeric: tabular-nums; }
+#wallet {
+  font: 650 clamp(31px, 3vw, 43px)/1.1 "Avenir Next", Avenir, "Helvetica Neue", sans-serif;
+  letter-spacing: -.06em;
+  font-variant-numeric: tabular-nums;
+}
+#positionReturn { display: grid; text-align: right; }
+#positionReturn span { color: var(--soft); font-size: 11px; }
+#gain { font-variant-numeric: tabular-nums; font-size: 14px; }
+.sizing {margin: 12px 0;}
+.sizing legend {font-size: 13px; margin-bottom: 5px;}
+.size-row {display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;}
+.size-row button {padding: 6px 3px; min-height: 34px; color: #554e60; font-size: 13px;}
+.size-row button[aria-pressed="true"] {background: #eae5f3; color: #302345; border-color: #7d6c90;}
+.position-line {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-top: 7px;}
+.cashout-all {color: #59417d; text-decoration: underline; text-underline-offset: 2px; background: transparent; border: 0; padding: 5px 0; font-size: 12px;}
 #gain { color: var(--green); }
 #gain.loss { color: var(--red); }
 .fine, .score span { font-size: 13px; color: var(--soft); }
@@ -706,7 +698,7 @@ dialog::backdrop {
   font: inherit;
   font-size: 14px;
 }
-#owned {margin-left: auto; color: var(--soft); font-size: 12px;}
+#owned {color: var(--soft); font-size: 12px;}
 .room-qr {
   display: block;
   margin: 12px auto;

@@ -20,6 +20,7 @@ PAYOUT = 10
 STARTING_CASH = 100
 LIQUIDITY = 18
 MAX_ORDER = 10
+PERCENTAGES = (10, 25, 50, 100)
 NETWORK_DURATION = 60
 NPC_COUNT = 20
 PREOPEN_TRADES = 12
@@ -188,8 +189,49 @@ class Room:
         return exponent / (1 + exponent)
 
     def quote(self, side, delta):
-        # LMSR cost difference, evaluated without exponentiating outstanding quantities.
-        return PAYOUT * LIQUIDITY * math.log1p(self.probability(side) * math.expm1(delta / LIQUIDITY))
+        # Split off the linear part of the LMSR cost. This stays finite even
+        # when a large sell order spans two very different market prices.
+        other = "down" if side == "up" else "up"
+        before = self.units[side] - self.units[other]
+        after = before + delta
+        premium_before = math.log1p(math.exp(-abs(before) / LIQUIDITY))
+        premium_after = math.log1p(math.exp(-abs(after) / LIQUIDITY))
+        return PAYOUT * (max(after, 0) - max(before, 0) + LIQUIDITY * (premium_after - premium_before))
+
+    def affordable(self, side, budget):
+        if budget <= 0:
+            return 0
+        other = "down" if side == "up" else "up"
+        # Once both outcomes are level, each extra share costs at least half
+        # of the payout, giving a finite upper bound even at a tiny price.
+        high = max(0, self.units[other] - self.units[side]) + math.ceil(2 * budget / PAYOUT)
+        low = 0
+        while low < high:
+            mid = (low + high + 1) // 2
+            if self.quote(side, mid) <= budget + 1e-9:
+                low = mid
+            else:
+                high = mid - 1
+        return low
+
+    def cash_out_value(self, player):
+        # Each pair guarantees one payout and its removal leaves the odds
+        # unchanged. Apply the normal sale price to the remaining shares.
+        paired = min(player["up"], player["down"])
+        side = "up" if player["up"] > player["down"] else "down"
+        return paired * PAYOUT - self.quote(side, -abs(player["up"] - player["down"]))
+
+    def bulk_quotes(self, player):
+        result = {"cashOut": {"quantity": player["up"] + player["down"], "total": money(self.cash_out_value(player))}}
+        for side in ("up", "down"):
+            buy, sell = {}, {}
+            for percent in PERCENTAGES:
+                n_buy = self.affordable(side, player["cash"] * percent / 100)
+                n_sell = max(1, player[side] * percent // 100) if player[side] else 0
+                buy[percent] = {"quantity": n_buy, "total": money(self.quote(side, n_buy))}
+                sell[percent] = {"quantity": n_sell, "total": money(abs(self.quote(side, -n_sell)))}
+            result[side] = {"buy": buy, "sell": sell}
+        return result
 
     def trade(self, key, side, action, quantity, order_id=None, quote_limit=None):
         elapsed = self.update()
@@ -205,24 +247,33 @@ class Room:
             raise GameError("Trading is closed.", 409)
         if key not in self.players:
             raise GameError("Join the room first.", 403)
-        if side not in ("up", "down") or action not in ("buy", "sell"):
-            raise GameError("Choose Buy or Sell and a side.")
-        if type(quantity) is not int or not 1 <= quantity <= MAX_ORDER:
-            raise GameError("Choose 1 to 10 tickets per order.")
+        all_positions = side == "both" and action == "sellAll"
+        if not all_positions and (side not in ("up", "down") or action not in ("buy", "sell")):
+            raise GameError("Choose an outcome and a trade.")
+        if type(quantity) is not int or not 1 <= quantity <= 2**53 - 1:
+            raise GameError("Choose a positive whole number of shares.")
         player = self.players[key]
+        if all_positions and quantity != player["up"] + player["down"]:
+            raise GameError("Your holdings changed. Check your balance and try again.", 409)
         delta = quantity if action == "buy" else -quantity
-        cost = self.quote(side, delta)
+        if not all_positions and delta < 0 and player[side] < quantity:
+            raise GameError("You can only sell shares you own.", 409)
+        cost = -self.cash_out_value(player) if all_positions else self.quote(side, delta)
         if quote_limit is not None:
-            if type(quote_limit) not in (int, float) or not 0 <= quote_limit <= MAX_ORDER * PAYOUT:
+            if type(quote_limit) not in (int, float) or not 0 <= quote_limit <= quantity * PAYOUT:
                 raise GameError("Invalid total quote.")
             total = money(abs(cost))
-            if (action == "buy" and total > quote_limit) or (action == "sell" and total < quote_limit):
+            if (action == "buy" and total > quote_limit) or (action != "buy" and total < quote_limit):
                 raise GameError("Another team traded first. Check the new total and try again.", 409)
-        if delta < 0 and player[side] < quantity:
-            raise GameError("You can only sell tickets you own.", 409)
-        if delta > 0 and cost > player["cash"] + 1e-9:
-            raise GameError("You need more points for this trade.", 409)
-        self.fill(player, side, delta, cost)
+        if cost > player["cash"] + 1e-9:
+            raise GameError("You need more practice cash for this trade.", 409)
+        if all_positions:
+            for outcome in ("up", "down"):
+                self.units[outcome] -= player[outcome]
+                player[outcome] = 0
+            player["cash"] -= cost
+        else:
+            self.fill(player, side, delta, cost)
         self.record_ticket(elapsed)
         if order_id is not None:
             self.executed[key, order_id] = (side, action, quantity)
@@ -251,7 +302,7 @@ class Room:
         def balance(p):
             if revealed:
                 return money(p["cash"] + p[self.winner] * PAYOUT)
-            return money(p["cash"] + p["up"] * up + p["down"] * (PAYOUT - up))
+            return money(p["cash"] + self.cash_out_value(p))
 
         player = self.players.get(key)
         net_elapsed = 0 if self.network_started is None else min(NETWORK_DURATION, self.clock() - self.network_started)
@@ -270,6 +321,7 @@ class Room:
             "lastPrice": visible[-1]["price"], "upPrice": money(up), "downPrice": money(PAYOUT - up),
             "quotes": {key: totals[0] for key, totals in quote_totals.items()},
             "quoteTotals": quote_totals,
+            "bulk": self.bulk_quotes(player) if player and not revealed else None,
             "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
             "players": len(self.players), "me": None if player is None else {
                 **player, "cash": money(player["cash"]), "points": balance(player)},
