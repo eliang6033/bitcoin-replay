@@ -133,7 +133,7 @@
             <button class="wide primary" id="launchButton">Create a room</button>
             <form id="roomForm" class="room-code-form">
               <label for="roomCode">Already have a room code?</label>
-              <div class="room-code-row"><input id="roomCode" name="roomCode" placeholder="e.g. ABCD2345" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" required /><button id="joinRoomButton" type="submit">Join room</button></div>
+              <div class="room-code-row"><input id="roomCode" name="roomCode" placeholder="e.g. 12345" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="9" required /><button id="joinRoomButton" type="submit">Join room</button></div>
             </form>
             <button id="returnRoom" class="wide room-return" type="button" hidden></button>
             <p class="room-note">Each room has its own players, market and leaderboard.</p>

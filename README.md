@@ -4,7 +4,7 @@ Run a shared five-minute prediction game, reveal the real Bitcoin price, then re
 
 ## Play online
 
-Open [Bitcoin Replay](https://eliang6033.github.io/bitcoin-replay/) and select **Create a room**, or enter a friend's eight-character room code. Each room has its own invitation link and downloadable QR code. Share that room link with your group; everyone with it can **Join the market** or **View live leaderboard** without joining. The homepage also offers a return link to the last room used in this browser.
+Open [Bitcoin Replay](https://eliang6033.github.io/bitcoin-replay/) and select **Create a room**, or enter a friend's five-digit room code. Each room has its own invitation link and downloadable QR code. Share that room link with your group; everyone with it can **Join the market** or **View live leaderboard** without joining. The homepage also offers a return link to the last room used in this browser. Existing eight-character room links still work. New numeric codes skip occupied rooms without changing their games.
 
 Rooms have independent players, balances, price paths, clocks and rankings. Starting or resetting one never changes another. The historical Bitcoin price window is the same teaching dataset in each room; the trading-agent simulation and human orders run independently. Old host links and already-open clients retain access to the earlier room as `?room=CLASSROOM`, without granting a host role.
 

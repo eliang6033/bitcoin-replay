@@ -14,7 +14,7 @@
     return memoryToken;
   }
   const lastRoomKey = 'bitcoin-replay.shared.v1.lastRoom';
-  const validCode = code => code === 'CLASSROOM' || /^[A-HJ-NP-Z2-9]{8}$/.test(code);
+  const validCode = code => code === 'CLASSROOM' || /^(?:[1-9][0-9]{4}|[A-HJ-NP-Z2-9]{8})$/.test(code);
   const normalize = value => String(value || '').trim().replace(/[\s-]/g,'').toUpperCase();
   function entry() {
     const params = new URL(location.href).searchParams;
@@ -53,7 +53,7 @@
   }
   function connect(input) {
     const code = normalize(input);
-    if (!validCode(code)) throw Object.assign(Error('Enter the eight-character room code from your friend.'), {invalidRoom:true});
+    if (!validCode(code)) throw Object.assign(Error('Enter the five-digit room code from your friend.'), {invalidRoom:true});
     let roundId, latestRevision = -1, remembered = false;
     return {
       async request(path, body) {

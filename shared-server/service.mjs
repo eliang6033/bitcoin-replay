@@ -1,7 +1,6 @@
 const PUBLIC_URL = 'https://eliang6033.github.io/bitcoin-replay/';
 const LEGACY_ROOM = 'classroom';
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const codeFormat = /^[A-HJ-NP-Z2-9]{8}$/;
+const codeFormat = /^(?:[1-9][0-9]{4}|[A-HJ-NP-Z2-9]{8})$/;
 const roomLink = code => PUBLIC_URL + '?room=' + code;
 const TICK_MS = 200;
 const fail = (message, status = 400) => { throw Object.assign(Error(message), {status, rejected:true}); };
@@ -14,15 +13,20 @@ export function createService(history, {clock = () => Date.now(), duration = 300
     // The same explicit creation request can be retried after a lost reply.
     // This marker provides idempotency, not a presenter role or special controls.
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key + body.creationId)));
-    const code = Array.from(digest.slice(0,8), byte => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join('');
+    const firstCode = new DataView(digest.buffer).getUint32(0) % 90000;
     const creationKey = Array.from(digest, byte => byte.toString(16).padStart(2,'0')).join('');
     const now = clock();
     const fresh = new globalThis.BitcoinReplayRoom(history, {clock:() => now / 1000, duration});
-    await db.prepare('INSERT OR IGNORE INTO rooms (id, version, updated, snapshot) VALUES (?, ?, ?, ?)')
-      .bind(code, 1, now, JSON.stringify({...fresh.save(), creationKey})).run();
-    const row = await db.prepare('SELECT snapshot FROM rooms WHERE id = ?').bind(code).first();
-    if (JSON.parse(row.snapshot).creationKey !== creationKey) fail('Please create a room again.',409);
-    return {roomCode:code, joinUrl:roomLink(code)};
+    // Never overwrite an occupied short code. Deterministic probing also keeps
+    // a retried creation request attached to the same room after a collision.
+    for (let attempt = 0; attempt < 32; attempt++) {
+      const code = String(10000 + (firstCode + attempt) % 90000);
+      await db.prepare('INSERT OR IGNORE INTO rooms (id, version, updated, snapshot) VALUES (?, ?, ?, ?)')
+        .bind(code, 1, now, JSON.stringify({...fresh.save(), creationKey})).run();
+      const row = await db.prepare('SELECT snapshot FROM rooms WHERE id = ?').bind(code).first();
+      if (JSON.parse(row.snapshot).creationKey === creationKey) return {roomCode:code, joinUrl:roomLink(code)};
+    }
+    fail('Please create a room again.',409);
   }
 
   async function roomRequest(db, path, body, key, code) {
@@ -128,7 +132,7 @@ export function createService(history, {clock = () => Date.now(), duration = 300
         if (path === 'create') return json(await createRoom(db, body, key));
         // Requests from already-open clients retain the original shared room.
         const code = url.searchParams.has('room') ? url.searchParams.get('room').trim().toUpperCase() : 'CLASSROOM';
-        if (code !== 'CLASSROOM' && !codeFormat.test(code)) fail('Enter an eight-character room code.');
+        if (code !== 'CLASSROOM' && !codeFormat.test(code)) fail('Enter a five-digit room code.');
         return json(await roomRequest(db, path, body, key, code));
       } catch (error) {
         if (error.rejected) return json({error:error.message, rejected:true}, error.status || 400);

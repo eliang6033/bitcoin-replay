@@ -124,10 +124,11 @@ test('client preserves room links, restores identity, offers a chooser at the ro
   }
   assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/').session,null);
   assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/?room=bad').entry.invalid,true);
-  const a=tab('https://eliang6033.github.io/bitcoin-replay/?room=abcd2345#leaderboard');
+  const a=tab('https://eliang6033.github.io/bitcoin-replay/?room=12345#leaderboard');
   await a.session.request('state');
-  assert.equal(a.location.href,'https://eliang6033.github.io/bitcoin-replay/?room=ABCD2345#leaderboard');
-  assert(calls[0].url.endsWith('/api/state?room=ABCD2345'));
+  assert.equal(a.location.href,'https://eliang6033.github.io/bitcoin-replay/?room=12345#leaderboard');
+  assert(calls[0].url.endsWith('/api/state?room=12345'));
+  assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/?room=abcd2345').entry.code,'ABCD2345');
   const identity=calls[0].options.headers.Authorization;
   await a.session.request('join',{name:'Eli'});
   assert.equal(JSON.parse(calls[1].options.body).roundId,'one-room');
@@ -145,7 +146,7 @@ test('rooms isolate names, cash, orders, NPCs, clocks, rankings, resets and audi
   const f = await fixture(t);
   const create = async (token) => {
     const r = await f.send('create',{creationId:crypto.randomUUID()},token);
-    assert.equal(r.status,200); assert.match(r.data.roomCode,/^[A-HJ-NP-Z2-9]{8}$/);
+    assert.equal(r.status,200); assert.match(r.data.roomCode,/^[1-9][0-9]{4}$/);
     return r.data.roomCode;
   };
   const [a,b] = await Promise.all([create(A),create(B)]);
@@ -193,4 +194,24 @@ test('creation retries return the same room without resetting it; unknown codes 
   assert.equal((await f.send('create',{})).status,401);
   assert.equal((await f.send('create',{creationId:'bad'},A)).status,400);
   assert.equal(await f.db.prepare('SELECT id FROM rooms WHERE id = ?').bind('ZZZZZZZZ').first(),null);
+});
+
+test('short-code collisions skip occupied rooms, concurrent retries stay together, old links still resolve', async t => {
+  const f=await fixture(t), creationId=crypto.randomUUID();
+  const hex=bytes=>Array.from(new Uint8Array(bytes),n=>n.toString(16).padStart(2,'0')).join('');
+  const key=hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(A)));
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key+creationId));
+  const occupied=String(10000+new DataView(digest).getUint32(0)%90000);
+  const saved=(await f.db.prepare('SELECT snapshot FROM rooms WHERE id = ?').bind('classroom').first()).snapshot;
+  for(const code of [occupied,'ABCD2345']) {
+    await f.db.prepare('INSERT INTO rooms (id, version, updated, snapshot) VALUES (?, ?, ?, ?)').bind(code,1,1000000,saved).run();
+  }
+  const created=await Promise.all([f.send('create',{creationId},A),f.send('create',{creationId},A)]);
+  assert(created.every(r=>r.status===200));
+  assert.match(created[0].data.roomCode,/^[1-9][0-9]{4}$/);
+  assert.notEqual(created[0].data.roomCode,occupied);
+  assert.equal(created[0].data.roomCode,created[1].data.roomCode);
+  assert.equal((await f.db.prepare('SELECT snapshot FROM rooms WHERE id = ?').bind(occupied).first()).snapshot,saved);
+  const legacy=await f.send('state?room=ABCD2345');
+  assert.equal(legacy.status,200); assert.equal(legacy.data.roomCode,'ABCD2345');
 });
