@@ -2,7 +2,10 @@
 (() => {
   "use strict";
   const PAYOUT = 10;
-  const LIQUIDITY = 18;
+  // A $100,000 starting wallet moves the odds by at most about 1.84 pp.
+  // Scale background capital and order sizes with depth to preserve activity.
+  const MARKET_SCALE = 30;
+  const LIQUIDITY = 18 * MARKET_SCALE;
   const LEGACY_LIQUIDITY = 40;
   const MAX_ORDER = 10;
   const PERCENTAGES = [10, 25, 50, 100];
@@ -67,6 +70,7 @@
           this.market = {
             ...saved.market,
             liquidity: saved.market.liquidity ?? LEGACY_LIQUIDITY,
+            npcLot: saved.market.npcLot ?? 1,
             traders: saved.market.traders.map(p => ({ ...p })),
             history: saved.market.history.map(p => ({ ...p })),
           };
@@ -120,6 +124,7 @@
     initMarket(enabled) {
       this.market = {
         liquidity: enabled ? LIQUIDITY : LEGACY_LIQUIDITY,
+        npcLot: enabled ? MARKET_SCALE : 1,
         randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
         nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
         sentiment: 0,
@@ -130,7 +135,7 @@
         return;
       }
       this.market.traders = Array.from({ length: NPC_COUNT }, (_, i) => ({
-        name: "NPC " + String(i + 1).padStart(2, "0"), cash: 100, up: 0, down: 0,
+        name: "NPC " + String(i + 1).padStart(2, "0"), cash: 100 * this.market.npcLot, up: 0, down: 0,
       }));
       // Simulated opening orders use only the opening book. A balanced set
       // gives every class the same starting quote while the path can vary.
@@ -141,7 +146,7 @@
       }
       this.recordTicket(-PREOPEN_TRADES);
       sides.forEach((side, i) => {
-        this.fill(this.market.traders[i], side, 1, this.quote(side, 1));
+        this.fill(this.market.traders[i], side, this.market.npcLot, this.quote(side, this.market.npcLot));
         this.recordTicket(i + 1 - PREOPEN_TRADES);
       });
     }
@@ -204,13 +209,14 @@
       const side = this.random() < leanUp ? "up" : "down";
       const other = side === "up" ? "down" : "up";
       let fillSide = side;
-      let delta = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap)));
+      const lot = this.market.npcLot;
+      let delta = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap))) * lot;
       if (trader[other] > 0) {
         // Selling the other outcome moves the odds in the same direction.
         fillSide = other;
         delta = -Math.min(trader[other], delta);
       } else {
-        while (delta && this.quote(side, delta) > trader.cash) delta--;
+        while (delta && this.quote(side, delta) > trader.cash) delta = Math.max(0, delta - lot);
         if (!delta) return false;
       }
       const cost = this.quote(fillSide, delta);
@@ -434,7 +440,7 @@
         phase: this.phase, elapsed: this.elapsed(now), duration: this.duration,
         completeHumanHistory: this.auditComplete,
         note: this.auditComplete ? "All confirmed human trades in this round." : "This round began on an older version. Earlier human fills may be missing; order inputs do not include execution times or prices.",
-        units: { ...this.units }, liquidity: this.market.liquidity,
+        units: { ...this.units }, liquidity: this.market.liquidity, npcLot: this.market.npcLot,
         winner, startPrice: this.prices[0].price,
         lastPrice: this.prices[Math.floor(this.elapsed(now) * HISTORICAL_MINUTES / this.duration)].price,
         players: Array.from(this.players.values(), p => ({ ...p,
@@ -560,6 +566,7 @@
         players: this.players.size,
         support,
         npcCount: this.market.traders.length,
+        currentMarketRules: this.market.liquidity === LIQUIDITY && this.market.npcLot === MARKET_SCALE,
         npcTrades: this.market.trades,
         ticketHistory: this.market.history.slice(),
         tradeFeed: this.tradeFeed.slice(),

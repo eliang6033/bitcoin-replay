@@ -66,7 +66,7 @@ test("budget buttons buy the largest affordable order and cannot create gains fr
     assert.ok(room.quote("up", quote.quantity + 1) > Number(budget));
   }
   const { quantity, total } = start.bulk.up.buy[100];
-  assert.equal(quantity, 16);
+  assert.equal(quantity, 19);
   const bought = call("trade", { side: "up", action: "buy", quantity, quoteLimit: total });
   assert.equal(bought.me.points, 100);
   assert.equal(bought.rankings[0].points, 100);
@@ -102,19 +102,19 @@ test("cash-out closes both outcomes at the joint book price, or rejects the enti
 
 test("very lopsided rooms keep large order and liquidation quotes finite in both implementations", () => {
   const room = new BitcoinReplayRoom(history, { clock: () => 0 });
-  room.units = { up: 2400, down: 0 };
-  const player = { cash: 100, up: 2000, down: 0 };
+  room.units = { up: 72000, down: 0 };
+  const player = { cash: 100, up: 60000, down: 0 };
   const bulk = room.bulkQuotes(player);
-  assert.ok(bulk.down.buy[100].quantity > 2300);
+  assert.ok(bulk.down.buy[100].quantity > 69000);
   assert.ok(bulk.down.buy[100].total <= 100);
   assert.ok(room.quote("down", bulk.down.buy[100].quantity + 1) > 100);
-  assert.ok(bulk.cashOut.total > 19000 && bulk.cashOut.total <= 20000);
+  assert.ok(bulk.cashOut.total > 570000 && bulk.cashOut.total <= 600000);
   const python = `
 import json
 from server import Room, ROOT
 r = Room(json.loads((ROOT / "history.json").read_text()))
-r.units = {"up": 2400, "down": 0}
-print(json.dumps(r.bulk_quotes({"cash":100, "up":2000, "down":0}), allow_nan=False))
+r.units = {"up": 72000, "down": 0}
+print(json.dumps(r.bulk_quotes({"cash":100, "up":60000, "down":0}), allow_nan=False))
 `;
   const result = spawnSync("python3", ["-c", python], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);

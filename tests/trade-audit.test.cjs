@@ -46,7 +46,7 @@ test('confirmed receipts reconcile cash, survive ticker eviction, reload and dup
 test('a 10 percent Up price is not the average cost of a large purchase, and losing Up pays zero', () => {
   const sim = setup();
   sim.room.market.traders = [];
-  sim.room.units.down = sim.room.units.up + 18 * Math.log(9);
+  sim.room.units.down = sim.room.units.up + sim.room.market.liquidity * Math.log(9);
   const s = sim.call('state');
   assert.equal(s.upPrice, 1);
   const purchase = sim.call('trade', {side: 'up', action: 'buyCash', amount: 25, orderId: 'cheap-up'});

@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parent / "public"
 ASSETS = {"index.html", "app.js", "style.css", "market.css", "trade-status.js", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
-LIQUIDITY = 18
+MARKET_SCALE = 30
+LIQUIDITY = 18 * MARKET_SCALE
 MAX_ORDER = 10
 PERCENTAGES = (10, 25, 50, 100)
 NETWORK_DURATION = 60
@@ -75,7 +76,7 @@ class Room:
         self.trade_feed = deque(maxlen=FEED_LIMIT)
         self.round_id = secrets.token_hex(5)
         self.rng = (int(self.round_id[:8], 16) if self.seed is None else self.seed) & 0xffffffff
-        self.npcs = [{"name": f"NPC {i + 1:02}", "cash": STARTING_CASH, "up": 0, "down": 0}
+        self.npcs = [{"name": f"NPC {i + 1:02}", "cash": STARTING_CASH * MARKET_SCALE, "up": 0, "down": 0}
                      for i in range(NPC_COUNT)]
         self.npc_trades = 0
         self.next_npc_ms = 1100
@@ -119,7 +120,7 @@ class Room:
             j = int(self.random() * (i + 1))
             sides[i], sides[j] = sides[j], sides[i]
         for i, side in enumerate(sides):
-            self.fill(self.npcs[i], side, 1, self.quote(side, 1))
+            self.fill(self.npcs[i], side, MARKET_SCALE, self.quote(side, MARKET_SCALE))
             self.record_ticket(i + 1 - PREOPEN_TRADES)
 
     def npc_order(self, minute, second):
@@ -140,14 +141,14 @@ class Room:
         side = "up" if self.random() < lean_up else "down"
         other = "down" if side == "up" else "up"
         fill_side = side
-        delta = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap)))
+        delta = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap))) * MARKET_SCALE
         if trader[other]:
             # Selling the other outcome moves the odds in the same direction.
             fill_side = other
             delta = -min(trader[other], delta)
         else:
             while delta and self.quote(side, delta) > trader["cash"]:
-                delta -= 1
+                delta = max(0, delta - MARKET_SCALE)
             if not delta:
                 return False
         cost = self.quote(fill_side, delta)
@@ -408,7 +409,7 @@ class Room:
             "quotes": {key: totals[0] for key, totals in quote_totals.items()},
             "quoteTotals": quote_totals,
             "bulk": self.bulk_quotes(player) if player and not revealed else None,
-            "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
+            "currentMarketRules": True, "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
             "tradeFeed": list(self.trade_feed), "myTrades": [f for owner, f in self.trade_log if owner == key], "auditComplete": True,
             "support": {side: sum(p[side] > 0 for p in self.players.values()) for side in ("up", "down")},
             "players": len(self.players), "me": None if player is None else {

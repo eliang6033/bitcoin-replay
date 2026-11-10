@@ -31,7 +31,8 @@ test("synthetic opening is balanced, NPCs share the students' book, totals recon
   sim.start();
   const current = sim.at(30);
   const buy = sim.student("trade", { side: "up", action: "buy", quantity: 5 });
-  assert.ok(buy.quotes.buyUp > current.quotes.buyUp + .2);
+  assert.ok(buy.quotes.buyUp > current.quotes.buyUp);
+  assert.ok(buy.upPrice - current.upPrice < .025, "a five-share purchase has a modest impact");
   assert.equal(buy.ticketHistory.at(-1).price, buy.quotes.buyUp);
   assert.equal(buy.ticketHistory.at(-1).downPrice, buy.quotes.buyDown);
   assert.notEqual(buy.quotes.buyDown, 10 - buy.quotes.buyUp);

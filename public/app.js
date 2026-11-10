@@ -10,6 +10,7 @@ const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" 
 const num = new Intl.NumberFormat("en-US");
 const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const practice = value => dollars.format(value * 1000);
+const compactDollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const timer = (t) =>
   String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 let state,
@@ -108,7 +109,8 @@ function makeFillRow(fill, me) {
   who.title = who.textContent;
   const amount = document.createElement("b");
   amount.className = "fill-amount";
-  amount.textContent = practice(fill.total);
+  amount.textContent = fill.actor === "npc" && fill.total >= 1000 ? compactDollars.format(fill.total * 1000) : practice(fill.total);
+  amount.title = practice(fill.total);
   const detail = document.createElement("span");
   detail.className = "fill-what";
   detail.textContent = fill.action === "sellAll" ? "Sold all positions" :
@@ -382,6 +384,7 @@ function paint(s) {
   label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
   show("hostbar", s.host);
+  show("marketUpdate", Boolean(s.host && s.currentMarketRules === false));
   const showLobbyInvite = s.host && s.phase === "lobby" && scannable(s.joinUrl);
   $("hostbar").classList.toggle("scan-lobby", showLobbyInvite);
   show("lobbyInvite", showLobbyInvite);
