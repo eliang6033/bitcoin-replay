@@ -10,6 +10,7 @@
     <!-- Online room scripts -->
     <script defer src="./vendor/qrcode.js"></script>
     <script defer src="./room-qr.js"></script>
+    <script defer src="./trade-status.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body class="exchange">
@@ -138,6 +139,7 @@
             <div id="positionReturn"><span id="gainLabel">Your profit / loss</span><b id="gain">$0</b></div>
             <div class="cash-detail" id="cashDetail"><span>Cash you can spend</span><b id="availableCash">—</b></div>
           </div>
+          <p id="settlementNote" class="settlement-note" hidden></p>
           <div id="mobileTrades"></div>
           <div id="tradePanel" hidden>
             <fieldset class="sizing" id="sizing">
@@ -151,11 +153,12 @@
             </fieldset>
             <p class="sizing-help">Buy uses your cash. Sell uses that bet’s holdings.</p>
             <div class="trade-grid">
-              <button type="button" id="buyUp" disabled><strong>Buy Up ↗</strong><span id="costUp"></span></button>
-              <button type="button" id="buyDown" disabled><strong>Buy Down ↘</strong><span id="costDown"></span></button>
-              <button type="button" id="sellUp" class="sell-action" disabled><strong>Sell Up</strong><span id="returnUp">No Up held</span></button>
-              <button type="button" id="sellDown" class="sell-action" disabled><strong>Sell Down</strong><span id="returnDown">No Down held</span></button>
+              <button type="button" id="buyUp" disabled><strong id="buyUpLabel">Buy Up</strong><span id="costUp"></span></button>
+              <button type="button" id="buyDown" disabled><strong id="buyDownLabel">Buy Down</strong><span id="costDown"></span></button>
+              <button type="button" id="sellUp" class="sell-action" disabled><strong id="sellUpLabel">Sell Up</strong><span id="returnUp">No Up held</span></button>
+              <button type="button" id="sellDown" class="sell-action" disabled><strong id="sellDownLabel">Sell Down</strong><span id="returnDown">No Down held</span></button>
             </div>
+            <div id="tradeNoticeHome"></div>
             <div id="positions" class="positions" hidden>
               <div class="holding" id="holdingUp" hidden><b class="up-label">Up held</b><span>Worth ≈ <strong id="valueUp"></strong></span></div>
               <div class="holding" id="holdingDown" hidden><b class="down-label">Down held</b><span>Worth ≈ <strong id="valueDown"></strong></span></div>
@@ -163,11 +166,14 @@
             </div>
             <p class="fine" id="orderNote" hidden></p>
           </div>
-          <p id="notice" role="status"></p>
+          <div id="notice" class="order-notice" role="status" aria-live="polite" aria-atomic="true" hidden><strong id="noticeTitle"></strong><span id="noticeDetail"></span></div>
+          <details id="myTrades" class="my-trades" hidden><summary>Your trades · <span id="tradeCount">0</span></summary><p id="historyNote" class="fine"></p><ol id="myTradeList"></ol></details>
+          <button type="button" id="downloadLog" class="log-download" hidden>Download round log</button>
           <details class="marketRules">
             <summary>How the money works</summary>
+            <p>The gold chart shows Bitcoin’s price, not your bet’s sale price. When Bitcoin rises, Down can become less valuable. A cheap Up bet still pays $0 if Up loses at the finish.</p>
             <p>Market chance comes from the room’s prices. Player counts show how many classmates hold each side. If you hold both, you count once on each side. NPCs trade separately.</p>
-            <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Dollar purchases can include part of a share. Each full winning share pays $10,000 in practice cash, and fractions pay proportionally. A losing share pays $0. You can sell a bet before the finish.</p>
+            <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Dollar purchases can include part of a share. Each full winning share pays $10,000 in practice cash, and fractions pay proportionally. A losing share pays $0. You can sell a bet before the finish. Large orders move the room price, so your average price can differ from the displayed chance.</p>
             <p>Choose a percentage, then press Buy Up, Buy Down, Sell Up, or Sell Down. Buy spends that percentage of your available cash. Sell closes that percentage of your holdings on that side. You can hold both sides at the same time.</p>
             <p>Total value includes your available cash and what you would receive by selling all open bets now. Profit or loss is that total minus your starting $100,000. Prices can move before you sell. Buying transfers cash into a bet, so spending $25,000 does not by itself mean a $25,000 loss.</p>
             <p>Buying at 100% spends your full available cash. Selling at 100% closes the entire chosen bet. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>

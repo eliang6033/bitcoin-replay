@@ -17,6 +17,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   }
   let peerNumber = 0;
   let latestReply;
+  let holdNextReply = false, releaseReply;
   let legacyGuest = false, legacyHost = false;
   class Channel extends EventEmitter {
     send(value) {
@@ -27,6 +28,11 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
         delete value.state.support;
       }
       if (value.state) latestReply = structuredClone(value.state);
+      if (value.state && holdNextReply) {
+        holdNextReply = false;
+        releaseReply = () => this.other.emit("data", structuredClone(value));
+        return;
+      }
       queueMicrotask(() => { if (this.open) this.other.emit("data", structuredClone(value)); });
     }
     close() {
@@ -211,6 +217,27 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   assert.equal(liquidated.me.down, 0);
   assert.ok(Math.abs(liquidated.me.cash - 100) < .0002);
   assert.deepEqual((await teams[0].request("state")).quotes, classViews[0].quotes);
+  // Deliver a poll after a newer confirmed trade. A following delta must still
+  // reconstruct the authoritative chart and wallet, not use the late cache.
+  holdNextReply = true;
+  const delayedPoll = fromOldQR.request("state");
+  await new Promise(resolve => setImmediate(resolve));
+  milliseconds += 1500;
+  const receiptView = await fromOldQR.request("trade", {
+    side: "up", action: "buyCash", amount: 5, orderId: "late-poll-check",
+  });
+  assert.equal(receiptView.tradeReceipt.orderId, "late-poll-check");
+  releaseReply();
+  const older = await delayedPoll;
+  assert.ok(older.revision < receiptView.revision);
+  const latest = await fromOldQR.request("state");
+  const authoritative = await newRound.request("state");
+  assert.equal(latest.me.cash, receiptView.me.cash);
+  assert.equal(latest.myTrades.at(-1).orderId, "late-poll-check");
+  assert.deepEqual(latest.ticketHistory, structuredClone(authoritative.ticketHistory));
+  assert.deepEqual(latest.prices, structuredClone(authoritative.prices));
+  assert.deepEqual(latest.tradeFeed, structuredClone(authoritative.tradeFeed));
+  assert.ok(latest.revision > receiptView.revision);
   restOfClass.forEach(person => person.dispose());
   reopened.dispose(); guest.dispose();
   await new Promise(resolve => setImmediate(resolve));

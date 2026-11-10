@@ -14,6 +14,10 @@ The Up and Down rows show each outcome's market-implied chance and how many stud
 
 Each player gets **$100,000 in practice cash**. The gold line is the historical price of one bitcoin in US dollars. The labeled horizontal line marks where Bitcoin started. Choose 10%, 25%, 50% or 100%, then press one of the four large buttons. Buy Up and Buy Down sit directly above Sell Up and Sell Down. Buying uses the chosen fraction of available cash, including small remaining balances. Selling closes the chosen fraction of that side’s holdings. Both sides can be held at once. Total value includes cash plus the amount received by selling all open bets now. Cash you can spend shows the available buying balance. Profit or loss is shown directly underneath.
 
+Each click shows a pending confirmation, then a confirmed payment or sale receipt. Rejected orders are marked **Not filled**; a lost connection is marked **Confirmation lost** until the exact order can be found in the player's history. Orders are never silently retried. **Your trades** retains every confirmed personal trade for the round, including the cash balance after execution. The host can download a round log without credentials or player identity tokens. Rounds begun before this feature are explicitly marked as incomplete; older fills cannot be recovered from the short live ticker.
+
+The displayed market chance is the marginal room price, not the average price for a large order. The gold Bitcoin line is a separate price. Selling returns the quoted sale proceeds; those proceeds are not themselves profit. At settlement, remaining losing bets pay zero even if bought cheaply. Host-issued snapshot revisions prevent an older response from replacing a newer balance. The host saves the round at least once per second while being polled, and after orders, so a same-tab reload retains the latest available snapshot.
+
 ## Try the local edition on one computer
 
 Open a terminal in this folder and run the following with Python 3.9 or newer.

@@ -15,6 +15,8 @@ const timer = (t) =>
 let state,
   orderPercent = 25,
   busy = false,
+  pendingOrder = null,
+  recentButton = null,
   sequence = 0,
   applied = 0;
 const online = document.documentElement.dataset.hosting === "pages";
@@ -200,6 +202,28 @@ function updateOutcomeRows(s) {
     label("holders" + name, Number.isInteger(holders) ? holders + (holders === 1 ? " player" : " players") : "Unavailable");
   }
 }
+function orderNotice(status) {
+  $("notice").dataset.kind = status?.kind || "";
+  label("noticeTitle", status?.headline || "");
+  label("noticeDetail", status?.details || "");
+  show("notice", Boolean(status));
+}
+function tradeHistory(s) {
+  show("myTrades", Boolean(s.me));
+  label("tradeCount", s.myTrades?.length || 0);
+  if (!$("myTrades").open) return;
+  label("historyNote", s.auditComplete === false ? "Earlier trades from the old version may be missing." :
+    "Confirmed trades only. Received money is sale proceeds, not profit.");
+  const rows = (s.myTrades || []).slice().reverse().map(fill => {
+    const row = document.createElement("li"), title = document.createElement("b"), detail = document.createElement("small");
+    title.textContent = timer(fill.second) + " · " + (fill.action === "buy" ? "Bought " : "Sold ") + (fill.side === "both" ? "both bets" : sideName(fill.side)) +
+      " · " + (fill.action === "buy" ? "Paid " : "Received ") + practice(fill.total);
+    detail.textContent = (fill.cashAfter == null ? "" : "Cash after trade: " + practice(fill.cashAfter) + " · ") +
+      num.format(Number(fill.quantity.toFixed(4))) + " shares";
+    row.append(title, detail); return row;
+  });
+  $("myTradeList").replaceChildren(...rows);
+}
 function setOrders() {
   const s = state;
   if (!s?.me) return;
@@ -220,6 +244,15 @@ function setOrders() {
     label("return" + name, canSell ? "Get ≈ " + practice(sell.total) : "No " + name + " held");
     $("buy" + name).disabled = busy || !trading || !canBuy;
     $("sell" + name).disabled = busy || !trading || !canSell;
+    for (const action of ["buy", "sell"]) {
+      const id = action + name, button = $(id);
+      const waiting = pendingOrder?.button === id;
+      button.dataset.pending = String(waiting);
+      button.dataset.confirmed = String(recentButton === id);
+      button.setAttribute("aria-busy", String(waiting));
+      label(id + "Label", waiting ? (action === "buy" ? "Buying…" : "Selling…") :
+        (recentButton === id ? "✓ " : "") + (action === "buy" ? "Buy " : "Sell ") + name);
+    }
     $("buy" + name).title = "Use " + orderPercent + "% of your cash to buy " + name;
     $("sell" + name).title = "Sell " + orderPercent + "% of your " + name + " holdings";
     const held = s.me[side] > 0;
@@ -300,7 +333,8 @@ function paint(s) {
     done = Boolean(s.reveal);
   if (old && old.roundId !== s.roundId) {
     orderPercent = 25;
-    label("notice", "");
+    orderNotice(null);
+    recentButton = null;
     $("ranks").open = false;
   }
   label(
@@ -440,12 +474,26 @@ function paint(s) {
   if (s.phase === "discussion" && old?.phase === "network")
     $("discussion").scrollIntoView({ block: "start" });
   drawStandings(s);
+  tradeHistory(s);
+  show("settlementNote", Boolean(done && s.me));
+  if (done && s.me) {
+    const loser = s.reveal.winner === "up" ? "down" : "up";
+    label("settlementNote", sideName(s.reveal.winner) + " won. " +
+      (s.me[loser] > 0 ? "Your remaining " + sideName(loser) + " bets paid $0. " : "") +
+      "Final total = cash " + practice(s.me.cash) + " + winning bets " + practice(s.me[s.reveal.winner] * 10) + ".");
+  }
+  const noticeHome = s.phase === "trading" ? $("tradeNoticeHome") : $("myTrades").parentNode;
+  if ($("notice").parentNode !== noticeHome) {
+    if (s.phase === "trading") noticeHome.append($("notice"));
+    else noticeHome.insertBefore($("notice"), $("myTrades"));
+  }
+  show("downloadLog", Boolean(s.host));
 }
 async function call(path, body) {
   const id = ++sequence;
   const data = online ? await session.request(path, body) : await localRequest(path, body);
-  if (id > applied) {
-    applied = id;
+  if (BitcoinTradeStatus.shouldApply(state, data, id, applied)) {
+    applied = Math.max(applied, id);
     paint(data);
   }
   show("status", false);
@@ -465,41 +513,44 @@ async function localRequest(path, body) {
     signal: AbortSignal.timeout(8000),
   });
   const data = await res.json();
-  if (!res.ok) throw Error(data.error || "Room unavailable.");
+  if (!res.ok) throw Object.assign(Error(data.error || "Room unavailable."), { rejected: true });
   return data;
 }
 async function submit(path, body) {
   if (busy) return;
   busy = true;
+  recentButton = null;
+  const isTrade = path === "trade";
+  if (isTrade) {
+    body = { ...body, orderId: crypto.randomUUID() };
+    const buying = ["buy", "buyCash"].includes(body.action);
+    pendingOrder = { button: body.side === "both" ? "cashOutAll" : (buying ? "buy" : "sell") + sideName(body.side) };
+    orderNotice({ kind: "pending", headline: buying ? "Buying " + sideName(body.side) + "…" : "Selling " + (body.side === "both" ? "both bets" : sideName(body.side)) + "…",
+      details: "Waiting for the host to confirm. Please do not click again." });
+  }
   setOrders();
   try {
-    const previousCash = state?.me?.cash;
     const updated = await call(path, body);
-    label(
-      "notice",
-      path === "trade"
-        ? (body.action === "sellAll" ? "Sold both bets" :
-          body.action === "buyCash" || body.action === "buy" ? "Bought " + sideName(body.side) : "Sold " + sideName(body.side)) +
-          " for " + practice(Math.abs(updated.me.cash - previousCash)) + "."
-        : "",
-    );
-  } catch (e) {
-    if (path === "trade") {
-      // Refresh the quote and wallet after a rejection. Never resubmit an order.
-      try { await call("state"); } catch { /* Keep the original order error visible. */ }
+    if (isTrade) {
+      const fill = updated.tradeReceipt || updated.myTrades?.find(f => f.orderId === body.orderId);
+      orderNotice(fill ? BitcoinTradeStatus.receipt(fill) : { kind: "success", headline: "Order accepted", details: "Check your updated balance and holdings." });
+      recentButton = pendingOrder.button;
     }
-    const message = e.message.startsWith("Another team traded")
-      ? "The price changed too quickly. Check the new price and tap again."
-      : e.message === "You need more points for this trade." ? "You need more practice cash for this bet."
-      : e.message === "You can only sell tickets you own." ? "You can cash out only shares you own."
-      : e.message;
-    label("notice", message);
-    if (path !== "trade") {
-      label("status", message);
+  } catch (e) {
+    if (isTrade) {
+      // A missing acknowledgement is not proof of rejection. Look for the exact
+      // reference after reconnecting, and never silently resend the order.
+      let confirmed;
+      try { confirmed = (await call("state")).myTrades?.find(f => f.orderId === body.orderId); } catch { }
+      orderNotice(confirmed ? BitcoinTradeStatus.receipt(confirmed) : BitcoinTradeStatus.failure(e));
+      if (confirmed) recentButton = pendingOrder.button;
+    } else {
+      label("status", e.message);
       show("status", true);
     }
   } finally {
     busy = false;
+    pendingOrder = null;
     if (state) paint(state);
   }
 }
@@ -513,6 +564,16 @@ async function refresh() {
     }
   setTimeout(refresh, state?.phase === "trading" && state.npcCount ? 280 : 1000);
 }
+$("myTrades").ontoggle = () => { if (state) tradeHistory(state); };
+$("downloadLog").onclick = async () => {
+  try {
+    const report = online ? await session.request("audit") : await localRequest("audit");
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], {type: "application/json"}));
+    link.href = url; link.download = "bitcoin-replay-" + report.roundId + ".json";
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (error) { label("status", error.message); show("status", true); }
+};
 $("joinForm").onsubmit = (e) => {
   e.preventDefault();
   submit("join", { name: $("playerName").value.trim() });

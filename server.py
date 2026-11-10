@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent / "public"
-ASSETS = {"index.html", "app.js", "style.css", "market.css", "room-qr.js", "vendor/qrcode.js"}
+ASSETS = {"index.html", "app.js", "style.css", "market.css", "trade-status.js", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
 LIQUIDITY = 18
@@ -70,6 +70,8 @@ class Room:
         self.started = self.network_started = None
         self.winner = None
         self.executed = {}
+        self.trade_log = []
+        self.revision = 0
         self.trade_feed = deque(maxlen=FEED_LIMIT)
         self.round_id = secrets.token_hex(5)
         self.rng = (int(self.round_id[:8], 16) if self.seed is None else self.seed) & 0xffffffff
@@ -290,7 +292,7 @@ class Room:
             if previous is not None:
                 if previous != signature:
                     raise GameError("Trade reference already used for a different order.", 409)
-                return
+                return next((f for owner, f in self.trade_log if owner == key and f.get("orderId") == order_id), None)
         if self.phase != "trading":
             raise GameError("Trading is closed.", 409)
         if key not in self.players:
@@ -327,6 +329,9 @@ class Room:
                 raise GameError("The price changed. Check the new total and try again.", 409)
         if cost > player["cash"] + 1e-9:
             raise GameError("You need more practice cash for this trade.", 409)
+        cash_before = player["cash"]
+        holdings_before = {side: player[side] for side in ("up", "down")}
+        market_price = None if all_positions else PAYOUT * self.probability(side)
         if all_positions:
             for outcome in ("up", "down"):
                 self.units[outcome] -= player[outcome]
@@ -336,8 +341,27 @@ class Room:
             self.fill(player, side, delta, cost)
         self.record_ticket(elapsed)
         self.record_trade(elapsed, "team", player["name"], "buy" if cash_order else action, side, quantity, cost)
+        receipt = {**self.trade_feed[-1], "orderId": order_id,
+                   "cashBefore": money(cash_before), "cashAfter": money(player["cash"]),
+                   "holdingsBefore": holdings_before, "holdingsAfter": {s: player[s] for s in ("up", "down")},
+                   "marketPrice": None if market_price is None else money(market_price),
+                   "averagePrice": money(abs(cost) / quantity),
+                   "bitcoinPrice": self.prices[math.floor(elapsed * 240 / self.duration)]["price"]}
+        self.trade_log.append((key, receipt))
         if order_id is not None:
             self.executed[key, order_id] = signature
+        return receipt
+
+    def audit_report(self):
+        self.update()
+        elapsed = 0 if self.started is None else min(self.duration, self.clock() - self.started)
+        return {"format": "Bitcoin Replay round log v1", "roundId": self.round_id,
+                "phase": self.phase, "elapsed": elapsed, "duration": self.duration,
+                "completeHumanHistory": True, "winner": self.winner,
+                "startPrice": self.prices[0]["price"], "lastPrice": self.prices[math.floor(elapsed * 240 / self.duration)]["price"],
+                "players": [{**p, "total": money(p["cash"] + (p[self.winner] * PAYOUT if self.winner else self.cash_out_value(p)))} for p in self.players.values()],
+                "trades": [f for _, f in self.trade_log], "recentTrades": list(self.trade_feed),
+                "moneyUnit": "Multiply stored money values by 1000 for displayed practice USD."}
 
     def host_action(self, action):
         self.update()
@@ -375,8 +399,9 @@ class Room:
             action + side.title(): [money(abs(self.quote(side, sign * n))) for n in range(1, MAX_ORDER + 1)]
             for side in ("up", "down") for action, sign in (("buy", 1), ("sell", -1))
         }
+        self.revision += 1
         return {
-            "phase": self.phase, "roundId": self.round_id, "host": host, "joinUrl": join_url,
+            "phase": self.phase, "roundId": self.round_id, "revision": self.revision, "host": host, "joinUrl": join_url,
             "remaining": math.ceil(self.duration - elapsed), "elapsed": elapsed,
             "duration": self.duration, "prices": visible, "startPrice": self.prices[0]["price"],
             "lastPrice": visible[-1]["price"], "upPrice": money(up), "downPrice": money(PAYOUT - up),
@@ -384,7 +409,7 @@ class Room:
             "quoteTotals": quote_totals,
             "bulk": self.bulk_quotes(player) if player and not revealed else None,
             "npcCount": NPC_COUNT, "npcTrades": self.npc_trades, "ticketHistory": list(self.ticket_history),
-            "tradeFeed": list(self.trade_feed),
+            "tradeFeed": list(self.trade_feed), "myTrades": [f for owner, f in self.trade_log if owner == key], "auditComplete": True,
             "support": {side: sum(p[side] > 0 for p in self.players.values()) for side in ("up", "down")},
             "players": len(self.players), "me": None if player is None else {
                 **player, "cash": money(player["cash"]), "points": balance(player)},
@@ -431,8 +456,10 @@ class Handler(BaseHTTPRequestHandler):
             return record.value if record else ""
         return get("br_player"), secrets.compare_digest(get("br_host").encode(), self.server.host_key.encode())
 
-    def snapshot(self, key, host, headers=None):
+    def snapshot(self, key, host, headers=None, receipt=None):
         state = self.server.room.state(key, host, self.server.join_url)
+        if receipt:
+            state["tradeReceipt"] = receipt
         self.reply(200, json.dumps(state, allow_nan=False).encode(), headers=headers)
 
     def do_GET(self):
@@ -443,6 +470,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(303, headers={"Location": "/", "Set-Cookie": self.cookie("br_host", self.server.host_key)})
             else:
                 self.reply(403, b'{"error":"Host link is for the presenting computer."}')
+            return
+        if path == "/api/audit":
+            _, host = self.identity()
+            if not host:
+                self.reply(403, b'{"error":"Only the host can download the round log."}')
+            else:
+                with self.server.room.lock:
+                    self.reply(200, json.dumps(self.server.room.audit_report(), allow_nan=False).encode())
             return
         if path == "/api/state":
             with self.server.room.lock:
@@ -474,12 +509,13 @@ class Handler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             key, host = self.identity()
             headers = {}
+            receipt = None
             with room.lock:
                 if path == "/api/join":
                     key = room.join(payload.get("name"), key)
                     headers["Set-Cookie"] = self.cookie("br_player", key)
                 elif path == "/api/trade":
-                    room.trade(key, payload.get("side"), payload.get("action"), payload.get("quantity", 1),
+                    receipt = room.trade(key, payload.get("side"), payload.get("action"), payload.get("quantity", 1),
                                payload.get("orderId"), payload.get("quoteLimit"), payload.get("amount"), payload.get("minQuantity"))
                 elif path == "/api/host":
                     if not host:
@@ -487,7 +523,7 @@ class Handler(BaseHTTPRequestHandler):
                     room.host_action(payload.get("action"))
                 else:
                     raise GameError("Unknown endpoint.", 404)
-                self.snapshot(key, host, headers)
+                self.snapshot(key, host, headers, receipt)
         except (ValueError, UnicodeError):
             self.reply(400, b'{"error":"Invalid request data."}')
         except GameError as exc:

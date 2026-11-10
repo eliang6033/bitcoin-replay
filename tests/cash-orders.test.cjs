@@ -45,11 +45,11 @@ test("dollar purchases use the chosen cash, survive retries and sell fractional 
 
 test("invalid or stale dollar orders leave balances and activity unchanged", () => {
   const sim = setup();
+  const quoted = sim.call("state").bulk.up.spend["25"].quantity;
   const before = sim.room.save();
   for (const amount of [0, -1, 101, NaN, Infinity, "25", true]) {
     assert.throws(() => sim.call("trade", {side: "up", action: "buyCash", amount}), /amount/);
   }
-  const quoted = sim.call("state").bulk.up.spend["25"].quantity;
   assert.throws(() => sim.call("trade", {side: "up", action: "buyCash", amount: 25, minQuantity: quoted + 1}), /price changed/);
   assert.deepEqual(sim.room.save(), before);
   sim.call("trade", {side: "up", action: "buyCash", amount: 50});

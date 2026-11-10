@@ -167,13 +167,19 @@
     const saved = JSON.parse(tabStorage.getItem(snapshotKey(owner.id)) || "null");
     const engine = new BitcoinReplayRoom(await archive.json(), { saved });
     const hostPlayer = playerKey(owner.id);
+    let savedAt = 0;
     function run(path, body, token, isHost, expectedRound) {
       if (expectedRound && expectedRound !== engine.roundId) {
         throw Error("The class started a new round. Please check your position.");
       }
-      const state = engine.request(path, body, token, isHost, joinUrl);
-      if (path !== "state") tabStorage.setItem(snapshotKey(owner.id), JSON.stringify(engine.save()));
-      return state;
+      try {
+        return engine.request(path, body, token, isHost, joinUrl);
+      } finally {
+        if (path !== "state" || Date.now() - savedAt >= 1000) {
+          tabStorage.setItem(snapshotKey(owner.id), JSON.stringify(engine.save()));
+          savedAt = Date.now();
+        }
+      }
     }
     const { peer, ready } = openPeer(owner.id, owner.token);
     peer.on("connection", conn => {
@@ -194,7 +200,7 @@
           player = message.token;
           if (!["state", "join", "trade"].includes(message.path)) throw Error("Students can join and trade only.");
           if (message.path !== "state" && !message.roundId) throw Error("Refresh the room before placing an order.");
-          const body = message.path === "trade" ? { ...message.body, orderId: message.id } : message.body;
+          const body = message.path === "trade" ? { ...message.body, orderId: message.body?.orderId || message.id } : message.body;
           const state = run(message.path, body, player, false, message.path === "state" ? null : message.roundId);
           // The historical candles are immutable, so classmates following the
           // replay also only need candles printed since their last update.
@@ -235,7 +241,7 @@
     return {
       id: owner.id, joinUrl,
       async request(path, body) {
-        return run(path, path === "trade" ? { ...body, orderId: randomKey() } : body, hostPlayer, true);
+        return run(path, path === "trade" ? { ...body, orderId: body?.orderId || randomKey() } : body, hostPlayer, true);
       },
     };
   }
@@ -245,6 +251,7 @@
     const player = playerKey(id);
     const { peer, ready } = openPeer();
     let connection, connecting, roundId, lastChart, lastPrices, lastFeed;
+    let requested = 0, applied = 0, lastRevision = 0;
     const pending = new Map();
 
     function disconnect(conn) {
@@ -294,7 +301,7 @@
           const request = pending.get(message.id);
           if (authenticated && request?.conn === conn) {
             pending.delete(message.id);
-            if (message.error) request.reject(Error(message.error));
+            if (message.error) request.reject(Object.assign(Error(message.error), { rejected: true }));
             else request.resolve(message.state);
           }
         });
@@ -307,6 +314,7 @@
     async function request(path, body) {
       // Never queue an old order across a disconnect or retry an ambiguous fill.
       if (path !== "state" && !connection?.open) throw Error("Reconnect and check your position before trading.");
+      const serial = ++requested;
       const conn = await connect();
       const requestId = randomKey();
       const requestedRound = roundId || null;
@@ -341,7 +349,6 @@
         state.ticketHistory = previous.history.slice(0, state.chartOffset).concat(state.ticketHistory);
         delete state.chartOffset;
       }
-      if (Array.isArray(state.ticketHistory)) lastChart = { id: state.roundId, history: state.ticketHistory };
       if (state.priceOffset !== undefined) {
         if (!knownPrices || state.roundId !== knownPrices.id || priceCount !== state.priceOffset) {
           lastPrices = null;
@@ -350,7 +357,6 @@
         state.prices = knownPrices.prices.concat(state.prices);
         delete state.priceOffset;
       }
-      if (Array.isArray(state.prices)) lastPrices = { id: state.roundId, prices: state.prices };
       if (state.feedStart !== undefined) {
         const start = state.feedStart;
         if (!knownFeed?.length || state.roundId !== requestedRound ||
@@ -361,8 +367,16 @@
         state.tradeFeed = knownFeed.slice(start - knownFeed[0].id).concat(state.tradeFeed);
         delete state.feedStart;
       }
-      lastFeed = Array.isArray(state.tradeFeed) ? { roundId: state.roundId, fills: state.tradeFeed } : null;
-      roundId = state.roundId;
+      const newer = state.roundId === roundId && Number.isSafeInteger(state.revision)
+        ? state.revision > lastRevision : serial > applied;
+      if (newer) {
+        if (Array.isArray(state.ticketHistory)) lastChart = { id: state.roundId, history: state.ticketHistory };
+        if (Array.isArray(state.prices)) lastPrices = { id: state.roundId, prices: state.prices };
+        lastFeed = Array.isArray(state.tradeFeed) ? { roundId: state.roundId, fills: state.tradeFeed } : null;
+        roundId = state.roundId;
+        lastRevision = state.revision || 0;
+        applied = Math.max(applied, serial);
+      }
       return state;
     }
     try { await ready; await request("state"); }

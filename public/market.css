@@ -122,3 +122,17 @@
 @media (prefers-reduced-motion: reduce) {
   .odds-meter i { transition: none; }
 }
+
+.exchange .order-notice:not([hidden]) { display: grid; gap: 5px; margin: 12px 0; padding: 13px; border: 1px solid #5a7695; border-radius: 10px; background: #1e3044; color: #d7eaff; }
+.order-notice strong { font-size: 16px; line-height: 1.4; }
+.order-notice span { font-size: 13px; line-height: 1.5; }
+.exchange #notice[data-kind="success"] { background: #12392e; border-color: #4dce9f; color: #a1f0cf; }
+.exchange #notice[data-kind="error"], .exchange #notice[data-kind="uncertain"] { background: #3c232a; border-color: #f18194; color: #ffd3db; }
+.exchange .trade-grid button[data-pending="true"] { border-color: #f4cd7e; color: #ffdf9c; box-shadow: 0 0 0 2px #f4cd7e40; }
+.exchange .trade-grid button[data-confirmed="true"] { box-shadow: 0 0 0 2px #e6fff1; }
+.my-trades { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.my-trades summary { cursor: pointer; font-weight: 650; }
+.my-trades ol { padding: 0; margin: 8px 0; list-style: none; max-height: 260px; overflow: auto; }
+.my-trades li { display: grid; gap: 5px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.my-trades small { color: var(--soft); }
+.log-download { margin-top: 14px; font-size: 12px; padding: 7px 10px; }

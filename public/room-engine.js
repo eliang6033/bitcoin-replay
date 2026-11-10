@@ -14,7 +14,7 @@
   const FEED_LIMIT = 64;
 
   function error(message, status = 400) {
-    throw Object.assign(new Error(message), { status });
+    throw Object.assign(new Error(message), { status, rejected: true });
   }
 
   const money = (value) => Math.round(value * 10000) / 10000;
@@ -57,6 +57,11 @@
         this.units = { ...saved.units };
         this.players = new Map(saved.players.map(([key, player]) => [key, { ...player }]));
         this.executed = new Map(saved.executed);
+        this.revision = saved.revision || 0;
+        this.tradeLog = saved.tradeLog || (saved.tradeFeed || []).filter(f => f.actor === "team").map(f => [
+          saved.players.find(([, p]) => p.name === f.name)?.[0], { ...f, legacy: true },
+        ]);
+        this.auditComplete = saved.auditComplete ?? false;
         this.tradeFeed = (saved.tradeFeed || []).slice(-FEED_LIMIT);
         if (saved.market) {
           this.market = {
@@ -85,6 +90,9 @@
         units: { ...this.units },
         players: Array.from(this.players, ([key, player]) => [key, { ...player }]),
         executed: Array.from(this.executed),
+        revision: this.revision,
+        tradeLog: this.tradeLog.slice(),
+        auditComplete: this.auditComplete,
         tradeFeed: this.tradeFeed.slice(),
         market: {
           ...this.market,
@@ -102,6 +110,9 @@
       this.units = { up: 0, down: 0 };
       this.players = new Map();
       this.executed = new Map();
+      this.revision = 0;
+      this.tradeLog = [];
+      this.auditComplete = true;
       this.tradeFeed = [];
       this.initMarket(true);
     }
@@ -351,7 +362,7 @@
           if (signature.some((value, i) => value !== previous[i])) {
             error("Trade reference already used for a different order.", 409);
           }
-          return;
+          return this.tradeLog.find(([k, fill]) => k === key && fill.orderId === orderId)?.[1] || null;
         }
       }
       if (this.phase !== "trading") error("Trading is closed.", 409);
@@ -387,6 +398,9 @@
           error("The price changed. Check the new total and try again.", 409);
       }
       if (cost > player.cash + 1e-9) error("You need more practice cash for this trade.", 409);
+      const cashBefore = player.cash;
+      const holdingsBefore = { up: player.up, down: player.down };
+      const marketPrice = all ? null : PAYOUT * this.probability(side);
       if (all) {
         for (const outcome of SIDES) {
           this.units[outcome] -= player[outcome];
@@ -399,7 +413,41 @@
       const elapsed = this.elapsed(now);
       this.recordTicket(elapsed);
       this.recordTrade(elapsed, "team", player.name, cashOrder ? "buy" : action, side, quantity, cost);
+      const receipt = {
+        ...this.tradeFeed[this.tradeFeed.length - 1], orderId: orderId || null,
+        cashBefore: money(cashBefore), cashAfter: money(player.cash),
+        holdingsBefore, holdingsAfter: { up: player.up, down: player.down },
+        marketPrice: marketPrice === null ? null : money(marketPrice),
+        averagePrice: money(Math.abs(cost) / quantity),
+        bitcoinPrice: this.prices[Math.floor(elapsed * HISTORICAL_MINUTES / this.duration)].price,
+      };
+      this.tradeLog.push([key, receipt]);
       if (reference) this.executed.set(reference, signature);
+      return receipt;
+    }
+
+    auditReport(now) {
+      const revealed = ["settled", "network", "discussion"].includes(this.phase);
+      const winner = revealed ? (this.prices[HISTORICAL_MINUTES].price > this.prices[0].price ? "up" : "down") : null;
+      return {
+        format: "Bitcoin Replay round log v1", roundId: this.roundId,
+        phase: this.phase, elapsed: this.elapsed(now), duration: this.duration,
+        completeHumanHistory: this.auditComplete,
+        note: this.auditComplete ? "All confirmed human trades in this round." : "This round began on an older version. Earlier human fills may be missing; order inputs do not include execution times or prices.",
+        units: { ...this.units }, liquidity: this.market.liquidity,
+        winner, startPrice: this.prices[0].price,
+        lastPrice: this.prices[Math.floor(this.elapsed(now) * HISTORICAL_MINUTES / this.duration)].price,
+        players: Array.from(this.players.values(), p => ({ ...p,
+          total: money(p.cash + (revealed ? p[winner] * PAYOUT : this.cashOutValue(p))),
+        })),
+        trades: this.tradeLog.map(([, fill]) => ({ ...fill })),
+        recentTrades: this.tradeFeed.slice(),
+        orderInputs: Array.from(this.executed, ([reference, order]) => ({
+          name: this.players.get(JSON.parse(reference)[0])?.name, side: order[0], action: order[1], amountOrQuantity: order[2],
+        })),
+        ticketHistory: this.market.history.slice(),
+        moneyUnit: "Multiply stored money values by 1000 for displayed practice USD.",
+      };
     }
 
     hostAction(action, now) {
@@ -431,6 +479,7 @@
         this.advanceMarket(elapsed);
         if (elapsed >= this.duration) this.phase = "settled";
       }
+      let tradeReceipt;
       switch (path.replace(/^\/api\//, "")) {
         case "state":
           break;
@@ -438,8 +487,11 @@
           this.join(playerKey, body?.name);
           break;
         case "trade":
-          this.trade(playerKey, body || {}, now);
+          tradeReceipt = this.trade(playerKey, body || {}, now);
           break;
+        case "audit":
+          if (isHost !== true) error("Only the host can download the round log.", 403);
+          return this.auditReport(now);
         case "host":
           if (isHost !== true) error("Only the host can use this control.", 403);
           this.hostAction(body?.action, now);
@@ -447,7 +499,9 @@
         default:
           error("Unknown endpoint.", 404);
       }
-      return this.state(now, playerKey, isHost === true, joinUrl);
+      const result = this.state(now, playerKey, isHost === true, joinUrl);
+      if (tradeReceipt) result.tradeReceipt = { ...tradeReceipt };
+      return result;
     }
 
     state(now, key, host, joinUrl) {
@@ -489,6 +543,7 @@
       return {
         phase: this.phase,
         roundId: this.roundId,
+        revision: ++this.revision,
         host,
         joinUrl,
         remaining: Math.ceil(this.duration - elapsed),
@@ -508,6 +563,8 @@
         npcTrades: this.market.trades,
         ticketHistory: this.market.history.slice(),
         tradeFeed: this.tradeFeed.slice(),
+        myTrades: this.tradeLog.filter(([owner]) => owner === key).map(([, fill]) => ({ ...fill })),
+        auditComplete: this.auditComplete,
         me: player ? { ...player, cash: money(player.cash), points: points(player) } : null,
         rankings: Array.from(this.players.values(), (p) => ({
           name: p.name,
