@@ -1,0 +1,1271 @@
+{
+  "note": "Synthetic fixture generated from 4b3c8fe before the NPC behavior update.",
+  "saved": {
+    "version": 1,
+    "windowStart": 1621423800,
+    "phase": "trading",
+    "started": 0,
+    "networkStarted": null,
+    "roundId": "79737050-fd8a-4ee3-b732-b49b5ec4807c",
+    "units": {
+      "up": 1230,
+      "down": 1566.3761024440032
+    },
+    "players": [
+      [
+        "compatibility-seat",
+        {
+          "name": "Compatibility test",
+          "cash": 75,
+          "up": 0,
+          "down": 6.376102444003223
+        }
+      ]
+    ],
+    "executed": [],
+    "revision": 4,
+    "tradeLog": [
+      [
+        "compatibility-seat",
+        {
+          "id": 40,
+          "actor": "team",
+          "name": "Compatibility test",
+          "action": "buy",
+          "side": "down",
+          "quantity": 6.376102444003223,
+          "total": 25,
+          "second": 12,
+          "orderId": null,
+          "cashBefore": 100,
+          "cashAfter": 75,
+          "holdingsBefore": {
+            "up": 0,
+            "down": 0
+          },
+          "holdingsAfter": {
+            "up": 0,
+            "down": 6.376102444003223
+          },
+          "marketPrice": 3.9068,
+          "averagePrice": 3.9209,
+          "bitcoinPrice": 38285.12
+        }
+      ]
+    ],
+    "auditComplete": true,
+    "tradeFeed": [
+      {
+        "id": 4,
+        "actor": "npc",
+        "name": "NPC 18",
+        "action": "buy",
+        "side": "down",
+        "quantity": 120,
+        "total": 550.1663,
+        "second": 2.541
+      },
+      {
+        "id": 5,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "buy",
+        "side": "down",
+        "quantity": 210,
+        "total": 1122.5723,
+        "second": 2.777
+      },
+      {
+        "id": 6,
+        "actor": "npc",
+        "name": "NPC 02",
+        "action": "buy",
+        "side": "down",
+        "quantity": 120,
+        "total": 731.0527,
+        "second": 3.001
+      },
+      {
+        "id": 7,
+        "actor": "npc",
+        "name": "NPC 13",
+        "action": "buy",
+        "side": "down",
+        "quantity": 150,
+        "total": 1000.0752,
+        "second": 3.213
+      },
+      {
+        "id": 8,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 642.8351,
+        "second": 3.462
+      },
+      {
+        "id": 9,
+        "actor": "npc",
+        "name": "NPC 07",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 168.0294,
+        "second": 3.647
+      },
+      {
+        "id": 10,
+        "actor": "npc",
+        "name": "NPC 18",
+        "action": "buy",
+        "side": "down",
+        "quantity": 60,
+        "total": 431.9706,
+        "second": 3.935
+      },
+      {
+        "id": 11,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 672.3146,
+        "second": 4.16
+      },
+      {
+        "id": 12,
+        "actor": "npc",
+        "name": "NPC 09",
+        "action": "buy",
+        "side": "down",
+        "quantity": 150,
+        "total": 1179.6892,
+        "second": 4.364
+      },
+      {
+        "id": 13,
+        "actor": "npc",
+        "name": "NPC 12",
+        "action": "buy",
+        "side": "up",
+        "quantity": 30,
+        "total": 58.5591,
+        "second": 4.538
+      },
+      {
+        "id": 14,
+        "actor": "npc",
+        "name": "NPC 01",
+        "action": "buy",
+        "side": "up",
+        "quantity": 30,
+        "total": 61.2216,
+        "second": 4.781
+      },
+      {
+        "id": 15,
+        "actor": "npc",
+        "name": "NPC 14",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 238.7784,
+        "second": 4.954
+      },
+      {
+        "id": 16,
+        "actor": "npc",
+        "name": "NPC 02",
+        "action": "sell",
+        "side": "down",
+        "quantity": 90,
+        "total": 707.9914,
+        "second": 5.169
+      },
+      {
+        "id": 17,
+        "actor": "npc",
+        "name": "NPC 02",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 230.2568,
+        "second": 5.416
+      },
+      {
+        "id": 18,
+        "actor": "npc",
+        "name": "NPC 06",
+        "action": "buy",
+        "side": "down",
+        "quantity": 150,
+        "total": 1179.6892,
+        "second": 5.668
+      },
+      {
+        "id": 19,
+        "actor": "npc",
+        "name": "NPC 20",
+        "action": "buy",
+        "side": "up",
+        "quantity": 120,
+        "total": 250.5677,
+        "second": 5.917
+      },
+      {
+        "id": 20,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 233.1863,
+        "second": 6.162
+      },
+      {
+        "id": 21,
+        "actor": "npc",
+        "name": "NPC 12",
+        "action": "buy",
+        "side": "up",
+        "quantity": 210,
+        "total": 532.2718,
+        "second": 6.341
+      },
+      {
+        "id": 22,
+        "actor": "npc",
+        "name": "NPC 11",
+        "action": "buy",
+        "side": "up",
+        "quantity": 90,
+        "total": 278.0395,
+        "second": 6.599
+      },
+      {
+        "id": 23,
+        "actor": "npc",
+        "name": "NPC 05",
+        "action": "buy",
+        "side": "up",
+        "quantity": 120,
+        "total": 422.3336,
+        "second": 6.863
+      },
+      {
+        "id": 24,
+        "actor": "npc",
+        "name": "NPC 08",
+        "action": "sell",
+        "side": "up",
+        "quantity": 30,
+        "total": 111.3129,
+        "second": 7.083
+      },
+      {
+        "id": 25,
+        "actor": "npc",
+        "name": "NPC 14",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 188.6871,
+        "second": 7.292
+      },
+      {
+        "id": 26,
+        "actor": "npc",
+        "name": "NPC 10",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 184.7708,
+        "second": 7.524
+      },
+      {
+        "id": 27,
+        "actor": "npc",
+        "name": "NPC 14",
+        "action": "buy",
+        "side": "up",
+        "quantity": 120,
+        "total": 501.0148,
+        "second": 7.778
+      },
+      {
+        "id": 28,
+        "actor": "npc",
+        "name": "NPC 20",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 275.0641,
+        "second": 8.056
+      },
+      {
+        "id": 29,
+        "actor": "npc",
+        "name": "NPC 04",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 493.5877,
+        "second": 8.257
+      },
+      {
+        "id": 30,
+        "actor": "npc",
+        "name": "NPC 02",
+        "action": "buy",
+        "side": "up",
+        "quantity": 120,
+        "total": 550.1663,
+        "second": 8.439
+      },
+      {
+        "id": 31,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 481.1819,
+        "second": 8.686
+      },
+      {
+        "id": 32,
+        "actor": "npc",
+        "name": "NPC 20",
+        "action": "buy",
+        "side": "up",
+        "quantity": 150,
+        "total": 718.8181,
+        "second": 9.321
+      },
+      {
+        "id": 33,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "sell",
+        "side": "down",
+        "quantity": 90,
+        "total": 418.8181,
+        "second": 10.259
+      },
+      {
+        "id": 34,
+        "actor": "npc",
+        "name": "NPC 06",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 131.3482,
+        "second": 10.537
+      },
+      {
+        "id": 35,
+        "actor": "npc",
+        "name": "NPC 13",
+        "action": "sell",
+        "side": "down",
+        "quantity": 90,
+        "total": 369.6666,
+        "second": 10.808
+      },
+      {
+        "id": 36,
+        "actor": "npc",
+        "name": "NPC 12",
+        "action": "buy",
+        "side": "up",
+        "quantity": 30,
+        "total": 184.7708,
+        "second": 11.07
+      },
+      {
+        "id": 37,
+        "actor": "npc",
+        "name": "NPC 15",
+        "action": "buy",
+        "side": "up",
+        "quantity": 30,
+        "total": 188.6871,
+        "second": 11.32
+      },
+      {
+        "id": 38,
+        "actor": "npc",
+        "name": "NPC 09",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 111.3129,
+        "second": 11.581
+      },
+      {
+        "id": 39,
+        "actor": "npc",
+        "name": "NPC 18",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 115.2292,
+        "second": 11.825
+      },
+      {
+        "id": 40,
+        "actor": "team",
+        "name": "Compatibility test",
+        "action": "buy",
+        "side": "down",
+        "quantity": 6.376102444003223,
+        "total": 25,
+        "second": 12
+      },
+      {
+        "id": 41,
+        "actor": "npc",
+        "name": "NPC 20",
+        "action": "sell",
+        "side": "up",
+        "quantity": 60,
+        "total": 355.8875,
+        "second": 12.098
+      },
+      {
+        "id": 42,
+        "actor": "npc",
+        "name": "NPC 04",
+        "action": "sell",
+        "side": "down",
+        "quantity": 90,
+        "total": 360.1808,
+        "second": 12.27
+      },
+      {
+        "id": 43,
+        "actor": "npc",
+        "name": "NPC 19",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 379.5913,
+        "second": 12.441
+      },
+      {
+        "id": 44,
+        "actor": "npc",
+        "name": "NPC 19",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 394.8408,
+        "second": 12.658
+      },
+      {
+        "id": 45,
+        "actor": "npc",
+        "name": "NPC 08",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 409.5647,
+        "second": 12.848
+      },
+      {
+        "id": 46,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 89.8769,
+        "second": 13.128
+      },
+      {
+        "id": 47,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 89.8769,
+        "second": 13.36
+      },
+      {
+        "id": 48,
+        "actor": "npc",
+        "name": "NPC 14",
+        "action": "buy",
+        "side": "up",
+        "quantity": 90,
+        "total": 640.6618,
+        "second": 13.624
+      },
+      {
+        "id": 49,
+        "actor": "npc",
+        "name": "NPC 05",
+        "action": "sell",
+        "side": "up",
+        "quantity": 30,
+        "total": 216.958,
+        "second": 13.87
+      },
+      {
+        "id": 50,
+        "actor": "npc",
+        "name": "NPC 12",
+        "action": "buy",
+        "side": "up",
+        "quantity": 60,
+        "total": 437.2105,
+        "second": 14.805
+      },
+      {
+        "id": 51,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 79.7475,
+        "second": 15.76
+      },
+      {
+        "id": 52,
+        "actor": "npc",
+        "name": "NPC 07",
+        "action": "sell",
+        "side": "up",
+        "quantity": 30,
+        "total": 216.958,
+        "second": 16.657
+      },
+      {
+        "id": 53,
+        "actor": "npc",
+        "name": "NPC 19",
+        "action": "sell",
+        "side": "up",
+        "quantity": 60,
+        "total": 423.7038,
+        "second": 17.4
+      },
+      {
+        "id": 54,
+        "actor": "npc",
+        "name": "NPC 02",
+        "action": "sell",
+        "side": "up",
+        "quantity": 90,
+        "total": 608.86,
+        "second": 18.064
+      },
+      {
+        "id": 55,
+        "actor": "npc",
+        "name": "NPC 17",
+        "action": "buy",
+        "side": "down",
+        "quantity": 30,
+        "total": 104.4545,
+        "second": 19.097
+      },
+      {
+        "id": 56,
+        "actor": "npc",
+        "name": "NPC 04",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 336.477,
+        "second": 19.789
+      },
+      {
+        "id": 57,
+        "actor": "npc",
+        "name": "NPC 09",
+        "action": "buy",
+        "side": "down",
+        "quantity": 60,
+        "total": 244.1125,
+        "second": 20.6
+      },
+      {
+        "id": 58,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 120,
+        "total": 537.1714,
+        "second": 21.234
+      },
+      {
+        "id": 59,
+        "actor": "npc",
+        "name": "NPC 19",
+        "action": "sell",
+        "side": "up",
+        "quantity": 60,
+        "total": 306.5595,
+        "second": 22.26
+      },
+      {
+        "id": 60,
+        "actor": "npc",
+        "name": "NPC 03",
+        "action": "buy",
+        "side": "down",
+        "quantity": 60,
+        "total": 310.0981,
+        "second": 23.284
+      },
+      {
+        "id": 61,
+        "actor": "npc",
+        "name": "NPC 14",
+        "action": "sell",
+        "side": "up",
+        "quantity": 180,
+        "total": 770.8823,
+        "second": 24.172
+      },
+      {
+        "id": 62,
+        "actor": "npc",
+        "name": "NPC 08",
+        "action": "sell",
+        "side": "up",
+        "quantity": 60,
+        "total": 224.88,
+        "second": 25.191
+      },
+      {
+        "id": 63,
+        "actor": "npc",
+        "name": "NPC 10",
+        "action": "buy",
+        "side": "down",
+        "quantity": 90,
+        "total": 591.3769,
+        "second": 25.99
+      },
+      {
+        "id": 64,
+        "actor": "npc",
+        "name": "NPC 20",
+        "action": "sell",
+        "side": "up",
+        "quantity": 90,
+        "total": 275.777,
+        "second": 27.002
+      },
+      {
+        "id": 65,
+        "actor": "npc",
+        "name": "NPC 06",
+        "action": "sell",
+        "side": "down",
+        "quantity": 30,
+        "total": 211.6025,
+        "second": 27.915
+      },
+      {
+        "id": 66,
+        "actor": "npc",
+        "name": "NPC 19",
+        "action": "buy",
+        "side": "up",
+        "quantity": 90,
+        "total": 286.5107,
+        "second": 28.793
+      },
+      {
+        "id": 67,
+        "actor": "npc",
+        "name": "NPC 15",
+        "action": "buy",
+        "side": "up",
+        "quantity": 30,
+        "total": 102.8525,
+        "second": 29.828
+      }
+    ],
+    "market": {
+      "liquidity": 540,
+      "npcLot": 30,
+      "randomState": 2581082931,
+      "nextMs": 30702,
+      "lastMinute": 23,
+      "burstUntilMs": 13759,
+      "trades": 66,
+      "sentiment": -1.4762925241607334,
+      "traders": [
+        {
+          "name": "NPC 01",
+          "cash": 2786.695292748572,
+          "up": 60,
+          "down": 0
+        },
+        {
+          "name": "NPC 02",
+          "cash": 3265.8892060547505,
+          "up": 30,
+          "down": 0
+        },
+        {
+          "name": "NPC 03",
+          "cash": 124.56839038339831,
+          "up": 0,
+          "down": 510
+        },
+        {
+          "name": "NPC 04",
+          "cash": 2373.8701126466844,
+          "up": 0,
+          "down": 120
+        },
+        {
+          "name": "NPC 05",
+          "cash": 2650.8703396228216,
+          "up": 120,
+          "down": 0
+        },
+        {
+          "name": "NPC 06",
+          "cash": 2007.0155810748724,
+          "up": 0,
+          "down": 120
+        },
+        {
+          "name": "NPC 07",
+          "cash": 2571.9861312044914,
+          "up": 120,
+          "down": 0
+        },
+        {
+          "name": "NPC 08",
+          "cash": 2778.7113311620183,
+          "up": 0,
+          "down": 0
+        },
+        {
+          "name": "NPC 09",
+          "cash": 1312.802340425233,
+          "up": 0,
+          "down": 270
+        },
+        {
+          "name": "NPC 10",
+          "cash": 2437.14784614897,
+          "up": 0,
+          "down": 90
+        },
+        {
+          "name": "NPC 11",
+          "cash": 2578.2064718268157,
+          "up": 120,
+          "down": 0
+        },
+        {
+          "name": "NPC 12",
+          "cash": 1639.2709073242713,
+          "up": 360,
+          "down": 0
+        },
+        {
+          "name": "NPC 13",
+          "cash": 2369.591348940774,
+          "up": 0,
+          "down": 60
+        },
+        {
+          "name": "NPC 14",
+          "cash": 2579.1143756528527,
+          "up": 30,
+          "down": 0
+        },
+        {
+          "name": "NPC 15",
+          "cash": 2391.8151364209825,
+          "up": 120,
+          "down": 0
+        },
+        {
+          "name": "NPC 16",
+          "cash": 3000,
+          "up": 0,
+          "down": 0
+        },
+        {
+          "name": "NPC 17",
+          "cash": 1958.6051261853268,
+          "up": 0,
+          "down": 180
+        },
+        {
+          "name": "NPC 18",
+          "cash": 1902.6338848583637,
+          "up": 0,
+          "down": 210
+        },
+        {
+          "name": "NPC 19",
+          "cash": 2669.320520183552,
+          "up": 90,
+          "down": 0
+        },
+        {
+          "name": "NPC 20",
+          "cash": 2387.2146742954355,
+          "up": 180,
+          "down": 0
+        }
+      ],
+      "history": [
+        {
+          "second": -12,
+          "price": 5.0023,
+          "downPrice": 5.0023
+        },
+        {
+          "second": -11,
+          "price": 5.1412,
+          "downPrice": 4.8635
+        },
+        {
+          "second": -10,
+          "price": 5.0023,
+          "downPrice": 5.0023
+        },
+        {
+          "second": -9,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": -8,
+          "price": 4.7248,
+          "downPrice": 5.2798
+        },
+        {
+          "second": -7,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": -6,
+          "price": 4.7248,
+          "downPrice": 5.2798
+        },
+        {
+          "second": -5,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": -4,
+          "price": 5.0023,
+          "downPrice": 5.0023
+        },
+        {
+          "second": -3,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": -2,
+          "price": 4.7248,
+          "downPrice": 5.2798
+        },
+        {
+          "second": -1,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": 0,
+          "price": 5.0023,
+          "downPrice": 5.0023
+        },
+        {
+          "second": 1,
+          "price": 5.1412,
+          "downPrice": 4.8635
+        },
+        {
+          "second": 2,
+          "price": 5.418,
+          "downPrice": 4.5866
+        },
+        {
+          "second": 2.25,
+          "price": 5.6923,
+          "downPrice": 4.3123
+        },
+        {
+          "second": 2.5,
+          "price": 5.1412,
+          "downPrice": 4.8635
+        },
+        {
+          "second": 2.75,
+          "price": 4.1765,
+          "downPrice": 5.828
+        },
+        {
+          "second": 3,
+          "price": 3.0314,
+          "downPrice": 6.9725
+        },
+        {
+          "second": 3.25,
+          "price": 2.6912,
+          "downPrice": 7.3124
+        },
+        {
+          "second": 3.5,
+          "price": 2.9153,
+          "downPrice": 7.0885
+        },
+        {
+          "second": 3.75,
+          "price": 2.6912,
+          "downPrice": 7.3124
+        },
+        {
+          "second": 4,
+          "price": 2.3763,
+          "downPrice": 7.6271
+        },
+        {
+          "second": 4.25,
+          "price": 1.91,
+          "downPrice": 8.0928
+        },
+        {
+          "second": 4.5,
+          "price": 1.9973,
+          "downPrice": 8.0056
+        },
+        {
+          "second": 4.75,
+          "price": 1.9973,
+          "downPrice": 8.0056
+        },
+        {
+          "second": 5,
+          "price": 2.2771,
+          "downPrice": 7.7262
+        },
+        {
+          "second": 5.25,
+          "price": 2.3763,
+          "downPrice": 7.6271
+        },
+        {
+          "second": 5.5,
+          "price": 1.91,
+          "downPrice": 8.0928
+        },
+        {
+          "second": 5.75,
+          "price": 2.2771,
+          "downPrice": 7.7262
+        },
+        {
+          "second": 6,
+          "price": 2.1809,
+          "downPrice": 7.8223
+        },
+        {
+          "second": 6.25,
+          "price": 2.9153,
+          "downPrice": 7.0885
+        },
+        {
+          "second": 6.5,
+          "price": 3.2711,
+          "downPrice": 6.733
+        },
+        {
+          "second": 6.75,
+          "price": 3.7776,
+          "downPrice": 6.2268
+        },
+        {
+          "second": 7,
+          "price": 3.6479,
+          "downPrice": 6.3564
+        },
+        {
+          "second": 7.25,
+          "price": 3.7776,
+          "downPrice": 6.2268
+        },
+        {
+          "second": 7.5,
+          "price": 3.909,
+          "downPrice": 6.0954
+        },
+        {
+          "second": 7.75,
+          "price": 4.449,
+          "downPrice": 5.5556
+        },
+        {
+          "second": 8,
+          "price": 4.7248,
+          "downPrice": 5.2798
+        },
+        {
+          "second": 8.25,
+          "price": 4.8635,
+          "downPrice": 5.1412
+        },
+        {
+          "second": 8.5,
+          "price": 4.449,
+          "downPrice": 5.5556
+        },
+        {
+          "second": 9.25,
+          "price": 5.1412,
+          "downPrice": 4.8635
+        },
+        {
+          "second": 10.25,
+          "price": 5.5556,
+          "downPrice": 4.449
+        },
+        {
+          "second": 10.5,
+          "price": 5.6923,
+          "downPrice": 4.3123
+        },
+        {
+          "second": 10.75,
+          "price": 6.0954,
+          "downPrice": 3.909
+        },
+        {
+          "second": 11,
+          "price": 6.2268,
+          "downPrice": 3.7776
+        },
+        {
+          "second": 11.25,
+          "price": 6.3564,
+          "downPrice": 3.6479
+        },
+        {
+          "second": 11.5,
+          "price": 6.2268,
+          "downPrice": 3.7776
+        },
+        {
+          "second": 11.75,
+          "price": 6.0954,
+          "downPrice": 3.909
+        },
+        {
+          "second": 12,
+          "price": 5.7992,
+          "downPrice": 4.2053
+        },
+        {
+          "second": 12.25,
+          "price": 6.4571,
+          "downPrice": 3.5471
+        },
+        {
+          "second": 12.5,
+          "price": 6.707,
+          "downPrice": 3.2971
+        },
+        {
+          "second": 12.75,
+          "price": 6.9476,
+          "downPrice": 3.0564
+        },
+        {
+          "second": 13,
+          "price": 7.0641,
+          "downPrice": 2.9398
+        },
+        {
+          "second": 13.25,
+          "price": 6.9476,
+          "downPrice": 3.0564
+        },
+        {
+          "second": 13.5,
+          "price": 7.2891,
+          "downPrice": 2.7145
+        },
+        {
+          "second": 13.75,
+          "price": 7.178,
+          "downPrice": 2.8258
+        },
+        {
+          "second": 14.75,
+          "price": 7.3975,
+          "downPrice": 2.6061
+        },
+        {
+          "second": 15.75,
+          "price": 7.2891,
+          "downPrice": 2.7145
+        },
+        {
+          "second": 16.5,
+          "price": 7.178,
+          "downPrice": 2.8258
+        },
+        {
+          "second": 17.25,
+          "price": 6.9476,
+          "downPrice": 3.0564
+        },
+        {
+          "second": 18,
+          "price": 6.5831,
+          "downPrice": 3.421
+        },
+        {
+          "second": 19,
+          "price": 6.4571,
+          "downPrice": 3.5471
+        },
+        {
+          "second": 19.75,
+          "price": 6.0672,
+          "downPrice": 3.9372
+        },
+        {
+          "second": 20.5,
+          "price": 5.7992,
+          "downPrice": 4.2053
+        },
+        {
+          "second": 21,
+          "price": 5.2504,
+          "downPrice": 4.7543
+        },
+        {
+          "second": 22.25,
+          "price": 4.9728,
+          "downPrice": 5.0318
+        },
+        {
+          "second": 23.25,
+          "price": 4.6954,
+          "downPrice": 5.3092
+        },
+        {
+          "second": 24,
+          "price": 3.881,
+          "downPrice": 6.1234
+        },
+        {
+          "second": 25,
+          "price": 3.6206,
+          "downPrice": 6.3837
+        },
+        {
+          "second": 25.75,
+          "price": 3.2451,
+          "downPrice": 6.7589
+        },
+        {
+          "second": 27,
+          "price": 2.891,
+          "downPrice": 7.1128
+        },
+        {
+          "second": 27.75,
+          "price": 3.0065,
+          "downPrice": 6.9974
+        },
+        {
+          "second": 28.75,
+          "price": 3.3681,
+          "downPrice": 6.636
+        },
+        {
+          "second": 29.75,
+          "price": 3.4933,
+          "downPrice": 6.5109
+        }
+      ]
+    }
+  },
+  "expected": [
+    {
+      "second": 93,
+      "upPrice": 5.5241,
+      "npcTrades": 143,
+      "me": {
+        "name": "Compatibility test",
+        "cash": 75,
+        "up": 0,
+        "down": 6.376102444003223,
+        "points": 103.4457
+      }
+    },
+    {
+      "second": 125,
+      "upPrice": 0.1983,
+      "npcTrades": 261,
+      "me": {
+        "name": "Compatibility test",
+        "cash": 75,
+        "up": 0,
+        "down": 6.376102444003223,
+        "points": 137.4895
+      }
+    },
+    {
+      "second": 170,
+      "upPrice": 4.2811,
+      "npcTrades": 425,
+      "me": {
+        "name": "Compatibility test",
+        "cash": 75,
+        "up": 0,
+        "down": 6.376102444003223,
+        "points": 111.3724
+      }
+    },
+    {
+      "second": 299,
+      "upPrice": 1.1231,
+      "npcTrades": 678,
+      "me": {
+        "name": "Compatibility test",
+        "cash": 75,
+        "up": 0,
+        "down": 6.376102444003223,
+        "points": 131.5624
+      }
+    },
+    {
+      "second": 300,
+      "upPrice": 0.3998,
+      "npcTrades": 684,
+      "me": {
+        "name": "Compatibility test",
+        "cash": 75,
+        "up": 0,
+        "down": 6.376102444003223,
+        "points": 138.761
+      }
+    }
+  ]
+}

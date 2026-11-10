@@ -6,6 +6,7 @@
   // Scale background capital and order sizes with depth to preserve activity.
   const MARKET_SCALE = 30;
   const LIQUIDITY = 18 * MARKET_SCALE;
+  const BEHAVIOR_VERSION = 2;
   const LEGACY_LIQUIDITY = 40;
   const MAX_ORDER = 10;
   const PERCENTAGES = [10, 25, 50, 100];
@@ -71,6 +72,7 @@
             ...saved.market,
             liquidity: saved.market.liquidity ?? LEGACY_LIQUIDITY,
             npcLot: saved.market.npcLot ?? 1,
+            behaviorVersion: saved.market.behaviorVersion ?? 1,
             traders: saved.market.traders.map(p => ({ ...p })),
             history: saved.market.history.map(p => ({ ...p })),
           };
@@ -125,6 +127,7 @@
       this.market = {
         liquidity: enabled ? LIQUIDITY : LEGACY_LIQUIDITY,
         npcLot: enabled ? MARKET_SCALE : 1,
+        behaviorVersion: enabled ? BEHAVIOR_VERSION : 1,
         randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
         nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
         sentiment: 0,
@@ -200,10 +203,15 @@
       // The same gap from the opening price matters more as time runs out.
       const uncertainty = 0.006 + 0.031 * Math.sqrt(1 - minute / HISTORICAL_MINUTES);
       const momentum = (who % 5 === 0 ? -0.3 : 1.0) * Math.tanh(recent / 0.022);
-      // A simulated belief from about 2% to 98%, on the market's log-odds scale.
       const sentiment = this.market.sentiment ?? 0;
       const opinion = (who % 4 === 0 ? -0.55 : 1) * sentiment;
-      const target = Math.max(-3.9, Math.min(3.9, sinceOpen / uncertainty + momentum + opinion));
+      const evidence = sinceOpen / uncertainty + momentum;
+      // Cap the common evidence first, so crowd sentiment and contrarians still
+      // disagree during a crash. The old clamp erased every opinion at the edge.
+      // Existing rounds keep their original behavior, including their RNG path.
+      const target = this.market.behaviorVersion >= 2
+        ? Math.max(-4.8, Math.min(4.8, Math.max(-3.9, Math.min(3.9, evidence)) + opinion))
+        : Math.max(-3.9, Math.min(3.9, evidence + opinion));
       const gap = target - (this.units.up - this.units.down) / this.market.liquidity;
       const leanUp = 0.5 + 0.46 * Math.tanh(1.5 * gap);
       const side = this.random() < leanUp ? "up" : "down";
@@ -242,7 +250,8 @@
         m.lastMinute = minute;
         // Correlated crowd sentiment creates runs and reversals. The schedule
         // and RNG are saved so refreshing cannot change a round's outcome.
-        m.sentiment = 0.96 * (m.sentiment ?? 0) + (this.random() - 0.5) * 0.8;
+        const sentimentStep = m.behaviorVersion >= 2 ? 1 : 0.8;
+        m.sentiment = 0.96 * (m.sentiment ?? 0) + (this.random() - 0.5) * sentimentStep;
         if (this.npcOrder(minute, at / 1000)) {
           m.trades++;
           this.recordTicket(at / 1000);
@@ -441,6 +450,7 @@
         completeHumanHistory: this.auditComplete,
         note: this.auditComplete ? "All confirmed human trades in this round." : "This round began on an older version. Earlier human fills may be missing; order inputs do not include execution times or prices.",
         units: { ...this.units }, liquidity: this.market.liquidity, npcLot: this.market.npcLot,
+        behaviorVersion: this.market.behaviorVersion,
         winner, startPrice: this.prices[0].price,
         lastPrice: this.prices[Math.floor(this.elapsed(now) * HISTORICAL_MINUTES / this.duration)].price,
         players: Array.from(this.players.values(), p => ({ ...p,
@@ -566,7 +576,8 @@
         players: this.players.size,
         support,
         npcCount: this.market.traders.length,
-        currentMarketRules: this.market.liquidity === LIQUIDITY && this.market.npcLot === MARKET_SCALE,
+        currentMarketRules: this.market.liquidity === LIQUIDITY && this.market.npcLot === MARKET_SCALE &&
+          this.market.behaviorVersion === BEHAVIOR_VERSION,
         npcTrades: this.market.trades,
         ticketHistory: this.market.history.slice(),
         tradeFeed: this.tradeFeed.slice(),

@@ -2,6 +2,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const data = require('../public/history.json');
 const legacy = require('./fixtures/shallow-market.json');
+const deepV1 = require('./fixtures/deep-market-v1.json');
 globalThis.crypto ??= require('node:crypto').webcrypto;
 require('../public/room-engine.js');
 
@@ -75,4 +76,22 @@ test('real pre-upgrade snapshots retain their original future quotes, balances a
   assert.equal(fresh.currentMarketRules, true);
   assert.equal(room.market.liquidity, 540);
   assert.equal(room.market.npcLot, 30);
+});
+
+test('deep-market rounds also keep their original NPC opinions until reset', () => {
+  let now = 30;
+  const room = new BitcoinReplayRoom(data, {clock: () => now, saved: structuredClone(deepV1.saved)});
+  assert.equal(room.market.liquidity, 540);
+  assert.equal(room.market.behaviorVersion, 1);
+  for (const expected of deepV1.expected) {
+    now = expected.second;
+    const s = room.request('state', null, 'compatibility-seat', true, '/');
+    assert.equal(s.upPrice, expected.upPrice);
+    assert.equal(s.npcTrades, expected.npcTrades);
+    assert.deepEqual(s.me, expected.me);
+    assert.equal(s.currentMarketRules, false);
+  }
+  const fresh = room.request('host', {action:'reset'}, 'compatibility-seat', true, '/');
+  assert.equal(fresh.currentMarketRules, true);
+  assert.equal(room.market.behaviorVersion, 2);
 });

@@ -133,9 +133,10 @@ class Room:
         # With less time to recover, the same gap from the opening price matters more.
         uncertainty = 0.006 + 0.031 * math.sqrt(1 - minute / 240)
         momentum = (-0.3 if seat % 5 == 0 else 1.0) * math.tanh(recent / 0.022)
-        # The NPC belief spans about 2% to 98% on the market's log-odds scale.
         opinion = (-0.55 if seat % 4 == 0 else 1) * self.sentiment
-        target = max(-3.9, min(3.9, since_open / uncertainty + momentum + opinion))
+        # Preserve disagreement after extreme evidence reaches the shared cap.
+        evidence = max(-3.9, min(3.9, since_open / uncertainty + momentum))
+        target = max(-4.8, min(4.8, evidence + opinion))
         gap = target - (self.units["up"] - self.units["down"]) / LIQUIDITY
         lean_up = 0.5 + 0.46 * math.tanh(1.5 * gap)
         side = "up" if self.random() < lean_up else "down"
@@ -166,7 +167,7 @@ class Room:
                 if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= threshold:
                     self.burst_until_ms = at + 3500
             self.last_npc_minute = minute
-            self.sentiment = 0.96 * self.sentiment + (self.random() - 0.5) * 0.8
+            self.sentiment = 0.96 * self.sentiment + (self.random() - 0.5)
             if self.npc_order(minute, at / 1000):
                 self.npc_trades += 1
                 self.record_ticket(at / 1000)
@@ -359,6 +360,7 @@ class Room:
         return {"format": "Bitcoin Replay round log v1", "roundId": self.round_id,
                 "phase": self.phase, "elapsed": elapsed, "duration": self.duration,
                 "completeHumanHistory": True, "winner": self.winner,
+                "liquidity": LIQUIDITY, "npcLot": MARKET_SCALE, "behaviorVersion": 2,
                 "startPrice": self.prices[0]["price"], "lastPrice": self.prices[math.floor(elapsed * 240 / self.duration)]["price"],
                 "players": [{**p, "total": money(p["cash"] + (p[self.winner] * PAYOUT if self.winner else self.cash_out_value(p)))} for p in self.players.values()],
                 "trades": [f for _, f in self.trade_log], "recentTrades": list(self.trade_feed),

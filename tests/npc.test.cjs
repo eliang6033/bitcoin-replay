@@ -79,7 +79,8 @@ test("the recorded crash pushes actual UP quotes to the edge and the rebound bri
     sim.start();
     const low = sim.at(125);
     assert.ok(low.lastPrice < 0.81 * low.startPrice);
-    assert.ok(low.quotes.buyUp < 0.5 && low.quotes.buyDown > 9.5);
+    // Strongly favors Down, while allowing different NPC opinions at the low.
+    assert.ok(low.quotes.buyUp < 1 && low.quotes.buyDown > 9);
     const rebound = sim.at(170);
     assert.ok(rebound.lastPrice > 1.17 * low.lastPrice);
     assert.ok(rebound.quotes.buyUp > low.quotes.buyUp + 1.5);

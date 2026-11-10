@@ -192,12 +192,12 @@ const sizeButtons = Array.from(document.querySelectorAll("[data-percent]"));
 const sideName = side => side === "up" ? "Up" : "Down";
 function updateOutcomeRows(s) {
   const up = Math.min(100, Math.max(0, s.upPrice * 10));
-  const roundedUp = Math.round(up);
+  const upTenths = Math.round(up * 10);
   for (const side of ["up", "down"]) {
     const name = sideName(side);
     const chance = side === "up" ? up : 100 - up;
-    const percentage = chance < 1 ? "<1%" : chance > 99 ? ">99%" :
-      (side === "up" ? roundedUp : 100 - roundedUp) + "%";
+    const percentage = chance < 0.1 ? "<0.1%" : chance > 99.9 ? ">99.9%" :
+      ((side === "up" ? upTenths : 1000 - upTenths) / 10).toFixed(1) + "%";
     const holders = s.support?.[side];
     label("odds" + name, percentage);
     $("bar" + name).style.width = chance + "%";

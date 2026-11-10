@@ -98,7 +98,7 @@
 .outcome-name b { display: block; color: #f4f6f9; line-height: 1.1; font-size: 21px; }
 .outcome-name small { color: #aeb9c6; font-size: 12px; font-weight: 450; }
 .odds-cell { display: flex; align-items: center; gap: 14px; }
-.odds-cell strong { min-width: 4ch; color: #f5f7fa; font-size: clamp(25px,3vw,36px); font-weight: 710; line-height: 1; letter-spacing: -.065em; font-variant-numeric: tabular-nums; }
+.odds-cell strong { min-width: 4.7ch; white-space: nowrap; color: #f5f7fa; font-size: clamp(25px,3vw,36px); font-weight: 710; line-height: 1; letter-spacing: -.065em; font-variant-numeric: tabular-nums; }
 .odds-meter { display: block; overflow: hidden; width: min(8vw,90px); height: 5px; border-radius: 3px; background: #35404c; }
 .odds-meter i { display: block; height: 100%; background: var(--outcome); transition: width .22s ease; }
 .holder-count { color: #d5dde6; font-weight: 550; font-size: 15px; }
@@ -109,7 +109,7 @@
   .exchange .layout:has(#tradePanel:not([hidden])) .ticket { order: -1; }
 }
 @media (max-width: 570px) {
-  .board-head, .market-board .market-row { grid-template-columns: minmax(116px,1fr) 76px 76px; gap: 5px; padding: 0 10px; }
+  .board-head, .market-board .market-row { grid-template-columns: minmax(116px,1fr) 84px 76px; gap: 5px; padding: 0 10px; }
   .board-head { font-size: 11px; line-height: 1.2; }
   .odds-meter { display: none; }
   .market-board .market-row { min-height: 58px; }
