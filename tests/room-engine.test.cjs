@@ -25,7 +25,7 @@ test("settlement ranks every joined player by actual payout, retaining ties and 
   const spectator = call("never-joined", "state");
   assert.equal(spectator.reveal.winner, "down");
   assert.equal(spectator.me, null);
-  assert.equal(spectator.npcCount, 20);
+  assert.equal(spectator.npcCount, 120);
   assert.equal(spectator.players, 4);
   const rank = spectator.rankings;
   assert.deepEqual(rank.map(row => row.name), ["Ari", "Sam", "Lee", "Casey"]);

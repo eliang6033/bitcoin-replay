@@ -3,16 +3,20 @@
   "use strict";
   const PAYOUT = 10;
   // A $100,000 starting wallet moves the odds by at most about 1.84 pp.
-  // Scale background capital and order sizes with depth to preserve activity.
+  // Spread the same background capital across smaller, faster-trading seats.
   const MARKET_SCALE = 30;
   const LIQUIDITY = 18 * MARKET_SCALE;
-  const BEHAVIOR_VERSION = 2;
+  const BEHAVIOR_VERSION = 3;
   const LEGACY_LIQUIDITY = 40;
   const MAX_ORDER = 10;
   const PERCENTAGES = [10, 25, 50, 100];
   const NETWORK_SECONDS = 60;
   const HISTORICAL_MINUTES = 240;
-  const NPC_COUNT = 20;
+  const NPC_COUNT = 120;
+  const NPC_CASH = 500;
+  const NPC_LOT = 5;
+  const NPC_RATE = 10;
+  const NPC_TRADE_LIMIT = 100;
   const SIDES = ["up", "down"];
   const PREOPEN_TRADES = 12;
   const FEED_LIMIT = 64;
@@ -73,6 +77,8 @@
             liquidity: saved.market.liquidity ?? LEGACY_LIQUIDITY,
             npcLot: saved.market.npcLot ?? 1,
             behaviorVersion: saved.market.behaviorVersion ?? 1,
+            npcRate: saved.market.npcRate ?? 1,
+            npcTradeLimit: saved.market.npcTradeLimit ?? null,
             traders: saved.market.traders.map(p => ({ ...p })),
             history: saved.market.history.map(p => ({ ...p })),
           };
@@ -126,8 +132,10 @@
     initMarket(enabled) {
       this.market = {
         liquidity: enabled ? LIQUIDITY : LEGACY_LIQUIDITY,
-        npcLot: enabled ? MARKET_SCALE : 1,
+        npcLot: enabled ? NPC_LOT : 1,
         behaviorVersion: enabled ? BEHAVIOR_VERSION : 1,
+        npcRate: enabled ? NPC_RATE : 1,
+        npcTradeLimit: enabled ? NPC_TRADE_LIMIT : null,
         randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
         nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
         sentiment: 0,
@@ -138,7 +146,7 @@
         return;
       }
       this.market.traders = Array.from({ length: NPC_COUNT }, (_, i) => ({
-        name: "NPC " + String(i + 1).padStart(2, "0"), cash: 100 * this.market.npcLot, up: 0, down: 0,
+        name: "NPC " + String(i + 1).padStart(3, "0"), cash: NPC_CASH, up: 0, down: 0,
       }));
       // Simulated opening orders use only the opening book. A balanced set
       // gives every class the same starting quote while the path can vary.
@@ -218,14 +226,19 @@
       const other = side === "up" ? "down" : "up";
       let fillSide = side;
       const lot = this.market.npcLot;
+      const limit = this.market.npcTradeLimit ?? Infinity;
       let delta = Math.min(MAX_ORDER, 1 + Math.floor(3 * Math.abs(gap))) * lot;
       if (trader[other] > 0) {
         // Selling the other outcome moves the odds in the same direction.
         fillSide = other;
         delta = -Math.min(trader[other], delta);
       } else {
-        while (delta && this.quote(side, delta) > trader.cash) delta = Math.max(0, delta - lot);
+        while (delta && this.quote(side, delta) > Math.min(trader.cash, limit)) delta = Math.max(0, delta - lot);
         if (!delta) return false;
+      }
+      // Cap sales as well as purchases: a larger portfolio must exit in pieces.
+      while (Math.abs(delta) > lot && Math.abs(this.quote(fillSide, delta)) > limit) {
+        delta -= Math.sign(delta) * lot;
       }
       const cost = this.quote(fillSide, delta);
       this.fill(trader, fillSide, delta, cost);
@@ -251,13 +264,15 @@
         // Correlated crowd sentiment creates runs and reversals. The schedule
         // and RNG are saved so refreshing cannot change a round's outcome.
         const sentimentStep = m.behaviorVersion >= 2 ? 1 : 0.8;
-        m.sentiment = 0.96 * (m.sentiment ?? 0) + (this.random() - 0.5) * sentimentStep;
+        const rate = m.npcRate;
+        m.sentiment = Math.pow(0.96, 1 / rate) * (m.sentiment ?? 0) +
+          (this.random() - 0.5) * sentimentStep / Math.sqrt(rate);
         if (this.npcOrder(minute, at / 1000)) {
           m.trades++;
           this.recordTicket(at / 1000);
         }
         const fast = at < m.burstUntilMs;
-        m.nextMs += Math.round(fast ? 170 + 120 * this.random() : 610 + 440 * this.random());
+        m.nextMs += Math.max(1, Math.round((fast ? 170 + 120 * this.random() : 610 + 440 * this.random()) / rate));
       }
     }
 
@@ -451,6 +466,8 @@
         note: this.auditComplete ? "All confirmed human trades in this round." : "This round began on an older version. Earlier human fills may be missing; order inputs do not include execution times or prices.",
         units: { ...this.units }, liquidity: this.market.liquidity, npcLot: this.market.npcLot,
         behaviorVersion: this.market.behaviorVersion,
+        npcCount: this.market.traders.length, npcRate: this.market.npcRate,
+        npcTradeLimit: this.market.npcTradeLimit,
         winner, startPrice: this.prices[0].price,
         lastPrice: this.prices[Math.floor(this.elapsed(now) * HISTORICAL_MINUTES / this.duration)].price,
         players: Array.from(this.players.values(), p => ({ ...p,
@@ -576,8 +593,8 @@
         players: this.players.size,
         support,
         npcCount: this.market.traders.length,
-        currentMarketRules: this.market.liquidity === LIQUIDITY && this.market.npcLot === MARKET_SCALE &&
-          this.market.behaviorVersion === BEHAVIOR_VERSION,
+        currentMarketRules: this.market.liquidity === LIQUIDITY && this.market.npcLot === NPC_LOT &&
+          this.market.behaviorVersion === BEHAVIOR_VERSION && this.market.traders.length === NPC_COUNT,
         npcTrades: this.market.trades,
         ticketHistory: this.market.history.slice(),
         tradeFeed: this.tradeFeed.slice(),

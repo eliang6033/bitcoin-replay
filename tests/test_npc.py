@@ -58,7 +58,7 @@ class MarketReplayTest(unittest.TestCase):
         self.assertGreater(closed["npcTrades"], 200)
         self.assertEqual(closed["players"], 0)
         self.assertGreater(len({p["price"] for p in closed["ticketHistory"]}), 5)
-        self.assertEqual(len(game.npcs), 20)
+        self.assertEqual(len(game.npcs), 120)
         for key in ("up", "down"):
             self.assertEqual(game.units[key], sum(p[key] for p in game.npcs))
         self.assertTrue(all(min(p["cash"], p["up"], p["down"]) >= 0 for p in game.npcs))
@@ -86,7 +86,7 @@ class MarketReplayTest(unittest.TestCase):
         self.now = 89
         prior = self.view(rooms[1])["npcTrades"]
         self.now = 99
-        self.assertLess(self.view(rooms[1])["npcTrades"] - prior, 15)
+        self.assertLess(self.view(rooms[1])["npcTrades"] - prior, 150)
 
     def test_large_drop_and_rebound_move_the_executable_ticket_prices(self):
         game = self.room()

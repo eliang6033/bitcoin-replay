@@ -60,6 +60,54 @@
 .exchange .final-profit.gain { color: var(--green); }
 .exchange .final-profit.loss { color: var(--red); }
 
+.nav-actions { display: flex; gap: 8px; align-items: center; }
+#spectatorChoice { margin: 16px 0 10px; padding-top: 17px; border-top: 1px solid var(--line); }
+#spectatorChoice button { color: #b9d9ff; border-color: #536b88; }
+#spectatorChoice p { margin: 8px 0 0; font-size: 12px; color: var(--soft); }
+.watching-ranks .layout, .watching-ranks #prediction, .watching-ranks #ranks,
+.watching-ranks #leaderboard, .watching-ranks #result { display: none; }
+.watching-ranks .hero { padding: 10px 0; }
+.watching-ranks .hero h1 { font-size: 25px; }
+.watching-ranks .hero p, .watching-ranks .hero .era { display: none; }
+.watching-ranks footer { display: none; }
+.live-board { margin-top: 16px; scroll-margin-top: 12px; }
+.live-board-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.live-board h2 { margin: 5px 0 7px; font-family: "Helvetica Neue",sans-serif; font-size: clamp(26px,3vw,34px); letter-spacing: -.04em; }
+.live-board-head p { margin: 0; font-size: 13px; max-width: 620px; }
+.live-badge { color: var(--green); font-size: 11px; font-weight: 750; letter-spacing: .12em; }
+.live-board-controls { display: grid; justify-items: end; gap: 8px; flex-shrink: 0; }
+#liveClock { color: #f2cc70; font: 650 27px/1.2 ui-monospace,monospace; }
+#closeLive { font-size: 12px; padding: 9px 12px; }
+.live-board-summary { display: flex; flex-wrap: wrap; gap: 7px 22px; margin: 17px 0 12px; padding: 10px 0; border-block: 1px solid var(--line); color: var(--soft); font-size: 12px; }
+#livePlayerCount { color: #e4ebf4; font-weight: 700; }
+#liveOdds { color: #b7d7ff; }
+#liveRanking { list-style: none; padding: 0; margin: 0; display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--rank-rows), 44px); grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 20px; }
+#liveRanking li { display: grid; grid-template-columns: 50px minmax(0,1fr) 32px auto; gap: 7px; align-items: center; padding: 6px 12px; border: 1px solid #2a3440; border-radius: 8px; background: #1b232d; min-width: 0; }
+#liveRanking li[data-place="1"] { background: #302b20; border-color: #6b5932; }
+#liveRanking li[data-place="2"] { background: #252e38; border-color: #4b5c6f; }
+#liveRanking li[data-place="3"] { background: #302620; border-color: #66503d; }
+#liveRanking li.is-me { outline: 1px solid #9dcaff; }
+.live-place { color: #cdd6e1; font-weight: 650; font-size: 15px; white-space: nowrap; }
+.live-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 650; }
+.live-profit { padding: 2px 4px; border-radius: 4px; font-size: clamp(17px,1.8vw,22px); line-height: 1.1; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.live-profit[data-sign="gain"], .live-movement[data-direction="up"] { color: var(--green); }
+.live-profit[data-sign="loss"], .live-movement[data-direction="down"] { color: var(--red); }
+.live-movement { font-size: 12px; white-space: nowrap; }
+#liveEmpty { text-align: center; padding: 42px 12px; }
+@media (max-width: 850px) {
+  #liveRanking { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: 1fr; }
+}
+@media (max-width: 570px) {
+  .nav-actions { gap: 0; }
+  .nav-actions .navlink { font-size: 11px; padding: 8px 5px; }
+  .live-board-head { gap: 10px; }
+  .live-board-head p { font-size: 12px; }
+  .live-board h2 { font-size: 25px; }
+  #liveClock { font-size: 23px; }
+  #liveRanking li { grid-template-columns: 42px minmax(0,1fr) 25px auto; gap: 4px; padding: 9px 7px; min-height: 48px; }
+  .live-name { font-size: 14px; }
+}
+
 .market-board { margin: 0 0 17px; border: 1px solid #2d3744; border-radius: 14px; overflow: hidden; background: #151a21; }
 .board-head, .market-board .market-row {
   display: grid;

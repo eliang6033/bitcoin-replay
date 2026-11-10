@@ -19,7 +19,7 @@ function replay(seed, version, history = data) {
 test('the trough has two-way executable price changes without flattening the crash signal', () => {
   let oldVariation = 0, newVariation = 0;
   for (let seed = 1; seed <= 30; seed++) {
-    for (const version of [1, 2]) {
+    for (const version of [1, 3]) {
       const {room, points} = replay(seed, version);
       const trough = points.filter(p => p.time >= 110 && p.time < 140);
       let rises = 0, falls = 0, freeze = 0, longestFreeze = 0, variation = 0;
@@ -53,7 +53,7 @@ test('new NPC disagreements use only the price history revealed at the time', ()
   const differentFuture = structuredClone(data);
   // At 170 replay seconds, historical minute 136 has been revealed.
   for (const candle of differentFuture.prices.slice(137)) candle.price *= 2;
-  const original = replay(1234, 2), changed = replay(1234, 2, differentFuture);
+  const original = replay(1234, 3), changed = replay(1234, 3, differentFuture);
   assert.deepEqual(changed.points, original.points);
   assert.deepEqual(changed.room.market.traders, original.room.market.traders);
   assert.deepEqual(changed.room.tradeFeed, original.room.tradeFeed);

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const data = require('../public/history.json');
 const legacy = require('./fixtures/shallow-market.json');
 const deepV1 = require('./fixtures/deep-market-v1.json');
+const deepV2 = require('./fixtures/deep-market-v2.json');
 globalThis.crypto ??= require('node:crypto').webcrypto;
 require('../public/room-engine.js');
 
@@ -75,7 +76,7 @@ test('real pre-upgrade snapshots retain their original future quotes, balances a
   const fresh = room.request('host', {action:'reset'}, 'compatibility-seat', true, '/');
   assert.equal(fresh.currentMarketRules, true);
   assert.equal(room.market.liquidity, 540);
-  assert.equal(room.market.npcLot, 30);
+  assert.equal(room.market.npcLot, 5);
 });
 
 test('deep-market rounds also keep their original NPC opinions until reset', () => {
@@ -93,5 +94,25 @@ test('deep-market rounds also keep their original NPC opinions until reset', () 
   }
   const fresh = room.request('host', {action:'reset'}, 'compatibility-seat', true, '/');
   assert.equal(fresh.currentMarketRules, true);
-  assert.equal(room.market.behaviorVersion, 2);
+  assert.equal(room.market.behaviorVersion, 3);
+});
+
+test('splitting the NPCs does not alter an already-open 20-trader round', () => {
+  let now = 30;
+  const room = new BitcoinReplayRoom(data, {clock: () => now, saved:structuredClone(deepV2.saved)});
+  assert.equal(room.market.traders.length, 20);
+  assert.equal(room.market.npcRate, 1);
+  for (const expected of deepV2.expected) {
+    now = expected.second;
+    const view = room.request('state', null, 'compatibility-seat', true, '/');
+    assert.equal(view.upPrice, expected.upPrice);
+    assert.equal(view.npcTrades, expected.npcTrades);
+    assert.deepEqual(view.me, expected.me);
+    assert.equal(view.currentMarketRules, false);
+  }
+  const fresh = room.request('host', {action:'reset'}, 'compatibility-seat', true, '/');
+  assert.equal(fresh.npcCount, 120);
+  assert.equal(fresh.currentMarketRules, true);
+  assert.equal(room.market.npcRate, 10);
+  assert.equal(room.market.npcTradeLimit, 100);
 });

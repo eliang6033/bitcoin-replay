@@ -103,7 +103,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   await student.request("join", { name: "First table" });
   assert.equal((await spectator.request("state")).me, null);
   const opening = await host.request("host", { action: "start" });
-  assert.equal(opening.npcCount, 20);
+  assert.equal(opening.npcCount, 120);
   assert.equal(opening.players, 1);
   milliseconds += 10000;
   const unattended = await student.request("state");
@@ -194,7 +194,7 @@ test("invite, host proof, independent seats, host-only controls and reconnect af
   const classViews = await Promise.all([fromOldQR, ...teams].map(team => team.request("state")));
   for (const view of classViews) {
     assert.equal(view.players, 20);
-    assert.equal(view.npcCount, 20);
+    assert.equal(view.npcCount, 120);
     assert.deepEqual(view.prices, classViews[0].prices);
     assert.deepEqual(view.ticketHistory, classViews[0].ticketHistory);
     assert.equal(view.npcTrades, classViews[0].npcTrades);

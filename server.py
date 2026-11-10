@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent / "public"
-ASSETS = {"index.html", "app.js", "style.css", "market.css", "trade-status.js", "room-qr.js", "vendor/qrcode.js"}
+ASSETS = {"index.html", "app.js", "style.css", "market.css", "trade-status.js", "live-ranking.js", "room-qr.js", "vendor/qrcode.js"}
 PAYOUT = 10
 STARTING_CASH = 100
 MARKET_SCALE = 30
@@ -24,7 +24,11 @@ LIQUIDITY = 18 * MARKET_SCALE
 MAX_ORDER = 10
 PERCENTAGES = (10, 25, 50, 100)
 NETWORK_DURATION = 60
-NPC_COUNT = 20
+NPC_COUNT = 120
+NPC_CASH = 500
+NPC_LOT = 5
+NPC_RATE = 10
+NPC_TRADE_LIMIT = 100
 PREOPEN_TRADES = 12
 FEED_LIMIT = 64
 
@@ -76,7 +80,7 @@ class Room:
         self.trade_feed = deque(maxlen=FEED_LIMIT)
         self.round_id = secrets.token_hex(5)
         self.rng = (int(self.round_id[:8], 16) if self.seed is None else self.seed) & 0xffffffff
-        self.npcs = [{"name": f"NPC {i + 1:02}", "cash": STARTING_CASH * MARKET_SCALE, "up": 0, "down": 0}
+        self.npcs = [{"name": f"NPC {i + 1:03}", "cash": NPC_CASH, "up": 0, "down": 0}
                      for i in range(NPC_COUNT)]
         self.npc_trades = 0
         self.next_npc_ms = 1100
@@ -120,7 +124,7 @@ class Room:
             j = int(self.random() * (i + 1))
             sides[i], sides[j] = sides[j], sides[i]
         for i, side in enumerate(sides):
-            self.fill(self.npcs[i], side, MARKET_SCALE, self.quote(side, MARKET_SCALE))
+            self.fill(self.npcs[i], side, NPC_LOT, self.quote(side, NPC_LOT))
             self.record_ticket(i + 1 - PREOPEN_TRADES)
 
     def npc_order(self, minute, second):
@@ -142,16 +146,18 @@ class Room:
         side = "up" if self.random() < lean_up else "down"
         other = "down" if side == "up" else "up"
         fill_side = side
-        delta = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap))) * MARKET_SCALE
+        delta = min(MAX_ORDER, 1 + math.floor(3.0 * abs(gap))) * NPC_LOT
         if trader[other]:
             # Selling the other outcome moves the odds in the same direction.
             fill_side = other
             delta = -min(trader[other], delta)
         else:
-            while delta and self.quote(side, delta) > trader["cash"]:
-                delta = max(0, delta - MARKET_SCALE)
+            while delta and self.quote(side, delta) > min(trader["cash"], NPC_TRADE_LIMIT):
+                delta = max(0, delta - NPC_LOT)
             if not delta:
                 return False
+        while abs(delta) > NPC_LOT and abs(self.quote(fill_side, delta)) > NPC_TRADE_LIMIT:
+            delta -= math.copysign(NPC_LOT, delta)
         cost = self.quote(fill_side, delta)
         self.fill(trader, fill_side, delta, cost)
         self.record_trade(second, "npc", trader["name"], "buy" if delta > 0 else "sell", fill_side, abs(delta), cost)
@@ -167,12 +173,12 @@ class Room:
                 if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= threshold:
                     self.burst_until_ms = at + 3500
             self.last_npc_minute = minute
-            self.sentiment = 0.96 * self.sentiment + (self.random() - 0.5)
+            self.sentiment = 0.96 ** (1 / NPC_RATE) * self.sentiment + (self.random() - 0.5) / math.sqrt(NPC_RATE)
             if self.npc_order(minute, at / 1000):
                 self.npc_trades += 1
                 self.record_ticket(at / 1000)
             interval = 170 + 120 * self.random() if at < self.burst_until_ms else 610 + 440 * self.random()
-            self.next_npc_ms += math.floor(interval + 0.5)
+            self.next_npc_ms += max(1, math.floor(interval / NPC_RATE + 0.5))
 
     def update(self):
         if self.phase != "trading":
@@ -360,7 +366,8 @@ class Room:
         return {"format": "Bitcoin Replay round log v1", "roundId": self.round_id,
                 "phase": self.phase, "elapsed": elapsed, "duration": self.duration,
                 "completeHumanHistory": True, "winner": self.winner,
-                "liquidity": LIQUIDITY, "npcLot": MARKET_SCALE, "behaviorVersion": 2,
+                "liquidity": LIQUIDITY, "npcLot": NPC_LOT, "behaviorVersion": 3,
+                "npcCount": NPC_COUNT, "npcRate": NPC_RATE, "npcTradeLimit": NPC_TRADE_LIMIT,
                 "startPrice": self.prices[0]["price"], "lastPrice": self.prices[math.floor(elapsed * 240 / self.duration)]["price"],
                 "players": [{**p, "total": money(p["cash"] + (p[self.winner] * PAYOUT if self.winner else self.cash_out_value(p)))} for p in self.players.values()],
                 "trades": [f for _, f in self.trade_log], "recentTrades": list(self.trade_feed),

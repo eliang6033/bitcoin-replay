@@ -11,6 +11,7 @@
     <script defer src="./vendor/qrcode.js"></script>
     <script defer src="./room-qr.js"></script>
     <script defer src="./trade-status.js"></script>
+    <script defer src="./live-ranking.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body class="exchange">
@@ -18,7 +19,7 @@
       <div class="nav">
         <a class="wordmark" href="./" aria-label="Bitcoin Replay home"
           ><i aria-hidden="true">₿</i> Bitcoin Replay</a
-        ><button id="guide" class="navlink">How to play <span>↗</span></button>
+        ><div class="nav-actions"><button id="viewLiveNav" class="navlink" hidden>Live leaderboard</button><button id="guide" class="navlink">How to play <span>↗</span></button></div>
       </div>
     </header>
     <main>
@@ -60,6 +61,15 @@
           <span class="odds-cell"><strong id="oddsDown">—</strong><i class="odds-meter" aria-hidden="true"><i id="barDown"></i></i></span>
           <span class="holder-count" id="holdersDown">—</span>
         </div>
+      </section>
+      <section class="panel live-board" id="liveBoard" aria-labelledby="liveRankHeading" hidden>
+        <div class="live-board-head">
+          <div><span class="live-badge" id="liveBadge">● LIVE</span><h2 id="liveRankHeading">Live leaderboard</h2><p id="liveRankNote">Profit / loss includes cash and what your bets could sell for now.</p></div>
+          <div class="live-board-controls"><b id="liveClock">05:00</b><button type="button" id="closeLive">Back to market</button></div>
+        </div>
+        <div class="live-board-summary"><span id="livePlayerCount">0 players</span><span id="liveOdds"></span><span>Classmates only · Started with $100,000 each</span></div>
+        <ol id="liveRanking" aria-label="Live player rankings by profit" aria-live="off"></ol>
+        <p id="liveEmpty">Waiting for classmates to join. You can watch without joining the market.</p>
       </section>
       <section id="result" class="panel result" hidden>
         <div>
@@ -135,6 +145,7 @@
             <p>You start with <b>$100,000 in practice cash</b>.</p>
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
+          <div id="spectatorChoice" hidden><button type="button" id="viewLive" class="wide">View live leaderboard ↗</button><p>Watch the class. No name or market entry needed.</p></div>
           <div class="wallet" id="walletPanel" hidden>
             <div class="total-value"><span id="worthLabel">Total value · cash + bets</span><b id="wallet">—</b></div>
             <div id="positionReturn"><span id="gainLabel">Your profit / loss</span><b id="gain">$0</b></div>
@@ -179,7 +190,7 @@
             <p>Total value includes your available cash and what you would receive by selling all open bets now. Profit or loss is that total minus your starting $100,000. Prices can move before you sell. Buying transfers cash into a bet, so spending $25,000 does not by itself mean a $25,000 loss.</p>
             <p>Buying at 100% spends your full available cash. Selling at 100% closes the entire chosen bet. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>
             <p id="limitInfo" hidden>Dollar purchases spend the displayed amount. If the bet available for that amount drops by more than 3% before execution, you will be asked to try again. Sale estimates can move by up to 3% before execution.</p>
-            <p>The 20 NPCs represent larger background traders. A $100,000 purchase moves the chance by less than 2 percentage points, before other trades. Classmates’ orders still add up. NPCs can disagree even during a crash, so prices can bounce while still favoring Down. Their trades and the market chances are simulated; the Bitcoin price history is real.</p>
+            <p>New rounds have 120 NPCs, each starting with $500,000. Their buys and sales are split into orders of at most $100,000. A $100,000 purchase moves the chance by less than 2 percentage points, before other trades. NPCs can disagree even during a crash. Their trades and market chances are simulated; the Bitcoin price history is real. The leaderboard includes classmates only.</p>
             <p id="traderCount"></p>
           </details>
         </aside>

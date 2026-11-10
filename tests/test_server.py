@@ -82,7 +82,7 @@ class ReplayTest(unittest.TestCase):
         self.now += 1
         final = self.game.state("", False, "/")
         self.assertEqual(final["reveal"]["winner"], "down")
-        self.assertEqual((final["players"], final["npcCount"]), (4, 20))
+        self.assertEqual((final["players"], final["npcCount"]), (4, 120))
         self.assertEqual([row["name"] for row in final["rankings"]], ["Ari", "Team Blue", "Lee", "Casey"])
         balances = [row["points"] for row in final["rankings"]]
         self.assertAlmostEqual(balances[0], self.game.players[winner]["cash"] + 10, places=3)

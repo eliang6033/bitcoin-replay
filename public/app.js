@@ -274,6 +274,41 @@ function setOrders() {
   show("orderNote", Boolean(note));
 }
 let finalRankRound;
+let watchingRanks = false;
+function updateLiveBoard(s) {
+  const allowed = !['network', 'discussion'].includes(s.phase);
+  if (!allowed) watchingRanks = false;
+  document.body.classList.toggle('watching-ranks', watchingRanks);
+  show('liveBoard', watchingRanks);
+  show('viewLiveNav', allowed && !watchingRanks);
+  show('spectatorChoice', allowed && !s.me);
+  if (!watchingRanks) return;
+  const done = Boolean(s.reveal);
+  label('liveRankHeading', done ? 'Final leaderboard' : 'Live leaderboard');
+  $('liveRanking').setAttribute('aria-label', (done ? 'Final' : 'Live') + ' player rankings by profit');
+  label('liveBadge', done ? '● FINAL' : s.phase === 'lobby' ? '● WAITING TO START' : '● LIVE');
+  label('liveClock', done ? 'FINISHED' : timer(s.remaining));
+  label('livePlayerCount', s.players + (s.players === 1 ? ' player' : ' players'));
+  label('liveOdds', done ? sideName(s.reveal.winner) + ' wins' :
+    'Up ' + (s.upPrice * 10).toFixed(1) + '% · Down ' + (s.downPrice * 10).toFixed(1) + '%');
+  label('liveRankNote', done ? 'Final profit / loss after winning bets pay out.' :
+    'Profit / loss includes cash and what your bets could sell for now. It can change until the finish.');
+  show('liveEmpty', !s.rankings.length);
+  BitcoinLiveRanking.render($('liveRanking'), s.rankings, {roundId:s.roundId, elapsed:s.elapsed, me:s.me?.name, settled:done});
+}
+function openLiveBoard() {
+  if (!state) return;
+  watchingRanks = true;
+  updateLiveBoard(state);
+  $('liveBoard').scrollIntoView({block:'start'});
+  $('closeLive').focus({preventScroll:true});
+}
+$('viewLive').onclick = openLiveBoard;
+$('viewLiveNav').onclick = openLiveBoard;
+$('closeLive').onclick = () => {
+  watchingRanks = false;
+  if (state) { updateLiveBoard(state); draw(state, ['network','discussion'].includes(state.phase)); }
+};
 function drawStandings(s) {
   const settled = Boolean(s.reveal);
   show("ranks", !settled);
@@ -297,10 +332,7 @@ function drawStandings(s) {
   if ($("leaderboard").nextElementSibling !== before) before.before($("leaderboard"));
   if (finalRankRound === s.roundId) return;
   finalRankRound = s.roundId;
-  const players = s.rankings.map(player => ({
-    name: player.name,
-    profit: Math.round(player.points * 1000) - 100000,
-  })).sort((a, b) => b.profit - a.profit);
+  const players = BitcoinLiveRanking.rank(s.rankings);
   label("finalPlayerCount", count);
   show("rankingEmpty", players.length === 0);
   let priorProfit, place;
@@ -477,6 +509,7 @@ function paint(s) {
   if (s.phase === "discussion" && old?.phase === "network")
     $("discussion").scrollIntoView({ block: "start" });
   drawStandings(s);
+  updateLiveBoard(s);
   tradeHistory(s);
   show("settlementNote", Boolean(done && s.me));
   if (done && s.me) {

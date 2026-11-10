@@ -19,7 +19,7 @@ function setup(history = data, saved, seed = 1234) {
 test("synthetic opening is balanced, NPCs share the students' book, totals reconcile", () => {
   const sim = setup();
   const lobby = sim.get();
-  assert.equal(lobby.npcCount, 20);
+  assert.equal(lobby.npcCount, 120);
   assert.equal(lobby.npcTrades, 0);
   assert.equal(lobby.players, 0);
   assert.deepEqual(lobby.rankings, []);
@@ -42,7 +42,7 @@ test("synthetic opening is balanced, NPCs share the students' book, totals recon
 
   const final = sim.at(300);
   assert.equal(final.ticketHistory.at(-1).price, final.quotes.buyUp);
-  assert.ok(final.npcTrades > 500 && final.npcTrades < 1000);
+  assert.ok(final.npcTrades > 4000 && final.npcTrades < 9000);
   assert.deepEqual(sim.at(340).ticketHistory, final.ticketHistory);
   assert.ok(final.ticketHistory.every((p, i, h) => i === 0 || p.second > h[i - 1].second));
   const saved = sim.room.save();
@@ -53,7 +53,7 @@ test("synthetic opening is balanced, NPCs share the students' book, totals recon
   }
 });
 
-test("a quiet market ticks about once per second; a visible jump briefly accelerates trading", () => {
+test("small orders trade many times per second; a visible jump briefly accelerates them", () => {
   const flat = structuredClone(data);
   for (const p of flat.prices) p.price = flat.prices[0].price;
   const shock = structuredClone(flat);
@@ -65,12 +65,12 @@ test("a quiet market ticks about once per second; a visible jump briefly acceler
   assert.equal(before.npcTrades, active.get().npcTrades);
   const quietFills = quiet.at(25.99).npcTrades - before.npcTrades;
   const shockFills = active.at(25.99).npcTrades - before.npcTrades;
-  assert.ok(quietFills >= 5 && quietFills <= 8);
-  assert.ok(shockFills >= 15 && shockFills <= 22);
+  assert.ok(quietFills >= 55 && quietFills <= 85);
+  assert.ok(shockFills >= 150 && shockFills <= 230);
   const seen = quiet.at(65);
   assert.deepEqual(quiet.at(65).ticketHistory, seen.ticketHistory);
   const stable = active.at(35).npcTrades;
-  assert.ok(active.at(55).npcTrades - stable <= 27);
+  assert.ok(active.at(55).npcTrades - stable <= 270);
 });
 
 test("the recorded crash pushes actual UP quotes to the edge and the rebound brings them back", () => {
@@ -127,7 +127,7 @@ test("existing rounds keep their market on upgrade and get NPCs with the next re
   assert.equal(legacy.get().upPrice, 5);
   assert.equal(legacy.student("trade", { side: "up", action: "buy", quantity: 3 }).me.up, 3);
   const fresh = legacy.room.request("host", { action: "reset" }, "host", true, "/");
-  assert.equal(fresh.npcCount, 20);
+  assert.equal(fresh.npcCount, 120);
   assert.equal(fresh.players, 0);
 });
 

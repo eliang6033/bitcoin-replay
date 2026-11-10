@@ -91,7 +91,7 @@ test("NPC activity reconciles to real balances and follows the clock across catc
   delete saved.tradeFeed;
   const upgraded = simulate(saved);
   assert.deepEqual(upgraded.at(180).tradeFeed, []);
-  assert.equal(upgraded.at(185).tradeFeed[0].id, 1);
+  assert.equal(upgraded.at(upgraded.room.market.nextMs / 1000 + .00001).tradeFeed[0].id, 1);
 });
 
 test("local and online students see the same fills and team counts", () => {
