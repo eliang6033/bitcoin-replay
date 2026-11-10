@@ -1,19 +1,41 @@
 const PUBLIC_URL = 'https://eliang6033.github.io/bitcoin-replay/';
-const ROOM = 'classroom';
+const LEGACY_ROOM = 'classroom';
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const codeFormat = /^[A-HJ-NP-Z2-9]{8}$/;
+const roomLink = code => PUBLIC_URL + '?room=' + code;
 const TICK_MS = 200;
 const fail = (message, status = 400) => { throw Object.assign(Error(message), {status, rejected:true}); };
 
-// One durable room, with compare-and-swap writes. No browser owns the clock.
+// Each room has its own durable row and compare-and-swap writes. No browser owns the clock.
 // Replaying scheduled NPC events from the saved seed makes catch-up deterministic.
 export function createService(history, {clock = () => Date.now(), duration = 300} = {}) {
-  async function roomRequest(db, path, body, key) {
+  async function createRoom(db, body, key) {
+    if (typeof body.creationId !== 'string' || !/^[a-f0-9-]{36}$/.test(body.creationId)) fail('Invalid room creation request.');
+    // The same explicit creation request can be retried after a lost reply.
+    // This marker provides idempotency, not a presenter role or special controls.
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key + body.creationId)));
+    const code = Array.from(digest.slice(0,8), byte => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join('');
+    const creationKey = Array.from(digest, byte => byte.toString(16).padStart(2,'0')).join('');
+    const now = clock();
+    const fresh = new globalThis.BitcoinReplayRoom(history, {clock:() => now / 1000, duration});
+    await db.prepare('INSERT OR IGNORE INTO rooms (id, version, updated, snapshot) VALUES (?, ?, ?, ?)')
+      .bind(code, 1, now, JSON.stringify({...fresh.save(), creationKey})).run();
+    const row = await db.prepare('SELECT snapshot FROM rooms WHERE id = ?').bind(code).first();
+    if (JSON.parse(row.snapshot).creationKey !== creationKey) fail('Please create a room again.',409);
+    return {roomCode:code, joinUrl:roomLink(code)};
+  }
+
+  async function roomRequest(db, path, body, key, code) {
+    const room = code === 'CLASSROOM' ? LEGACY_ROOM : code;
+    const joinUrl = roomLink(code);
     for (let attempt = 0; attempt < 20; attempt++) {
       const wallNow = clock();
-      let row = await db.prepare('SELECT version, updated, snapshot FROM rooms WHERE id = ?').bind(ROOM).first();
+      let row = await db.prepare('SELECT version, updated, snapshot FROM rooms WHERE id = ?').bind(room).first();
       if (!row) {
+        if (room !== LEGACY_ROOM) fail('Room not found. Check the code or ask for the room link.',404);
         const fresh = new globalThis.BitcoinReplayRoom(history, {clock:() => wallNow / 1000, duration});
         await db.prepare('INSERT OR IGNORE INTO rooms (id, version, updated, snapshot) VALUES (?, ?, ?, ?)')
-          .bind(ROOM, 1, wallNow, JSON.stringify(fresh.save())).run();
+          .bind(room, 1, wallNow, JSON.stringify(fresh.save())).run();
         continue;
       }
       const saved = JSON.parse(row.snapshot);
@@ -23,15 +45,15 @@ export function createService(history, {clock = () => Date.now(), duration = 300
       const mutation = !['state', 'audit'].includes(path);
       const now = mutation ? Math.max(wallNow, row.updated) : needsTick ? tick : row.updated;
       const engine = new globalThis.BitcoinReplayRoom(history, {saved, clock:() => now / 1000, duration});
-      let state = engine.request('state', null, key, false, PUBLIC_URL);
+      let state = engine.request('state', null, key, false, joinUrl);
       if (mutation && body.roundId !== engine.roundId)
         fail('The class started a new round. Please check the room and try again.', 409);
 
       if (path === 'join') {
-        state = engine.request('join', {name:body.name}, key, false, PUBLIC_URL);
+        state = engine.request('join', {name:body.name}, key, false, joinUrl);
       } else if (path === 'trade') {
         if (typeof body.orderId !== 'string' || !body.orderId) fail('Missing trade reference. Refresh and try again.');
-        state = engine.request('trade', body, key, false, PUBLIC_URL);
+        state = engine.request('trade', body, key, false, joinUrl);
       } else if (path === 'control') {
         // A finished room must remain usable even after every old player leaves.
         if (body.action !== 'reset' && !engine.players.has(key))
@@ -43,7 +65,7 @@ export function createService(history, {clock = () => Date.now(), duration = 300
             'The room has already moved on. Check the current screen.', 409);
         if (body.action === 'discussion' && engine.phase === 'network' && state.network.elapsed < state.network.duration)
           fail('The network replay is still running.', 409);
-        state = engine.request('host', {action:body.action}, key, true, PUBLIC_URL);
+        state = engine.request('host', {action:body.action}, key, true, joinUrl);
       } else if (path === 'audit') {
         if (!engine.players.has(key)) fail('Join the market to download the round log.', 403);
       }
@@ -52,11 +74,11 @@ export function createService(history, {clock = () => Date.now(), duration = 300
       if (needsTick || mutation) {
         engine.revision = version;
         const result = await db.prepare('UPDATE rooms SET version = ?, updated = ?, snapshot = ? WHERE id = ? AND version = ?')
-          .bind(version, now, JSON.stringify(engine.save()), ROOM, row.version).run();
+          .bind(version, now, JSON.stringify({...engine.save(), creationKey:saved.creationKey}), room, row.version).run();
         if (result.meta.changes !== 1) continue; // Another order won. Recheck against its committed book.
       }
-      if (path === 'audit') return engine.auditReport(now / 1000);
-      return {...state, revision:version, host:false, sharedRoom:true,
+      if (path === 'audit') return {...engine.auditReport(now / 1000), roomCode:code};
+      return {...state, revision:version, host:false, sharedRoom:true, roomCode:code,
         canControl:Boolean(state.me), canReset:['settled','network','discussion'].includes(state.phase), serverTime:now};
     }
     fail('The room is busy. Please check your balance and try again.', 409);
@@ -77,10 +99,10 @@ export function createService(history, {clock = () => Date.now(), duration = 300
         'Access-Control-Allow-Methods':'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers':'Content-Type, Authorization', 'Access-Control-Max-Age':'3600'}});
       if (url.pathname === '/') return Response.redirect(PUBLIC_URL, 302);
-      if (url.pathname === '/api/health') return json({ok:true, service:'Bitcoin Replay shared room', protocol:1});
+      if (url.pathname === '/api/health') return json({ok:true, service:'Bitcoin Replay rooms', protocol:2});
       const path = url.pathname.replace(/^\/api\//, '');
-      if (!['state','join','trade','control','audit'].includes(path)) return json({error:'Not found.', rejected:true},404);
-      const mutation = ['join','trade','control'].includes(path);
+      if (!['create','state','join','trade','control','audit'].includes(path)) return json({error:'Not found.', rejected:true},404);
+      const mutation = ['create','join','trade','control'].includes(path);
       if (request.method !== (mutation ? 'POST' : 'GET')) return json({error:'Method not allowed.', rejected:true},405);
       try {
         const authorization = request.headers.get('Authorization');
@@ -103,7 +125,11 @@ export function createService(history, {clock = () => Date.now(), duration = 300
         }
         // Primary reads plus a version condition prevent lost updates across Worker instances.
         const db = env.DB.withSession ? env.DB.withSession('first-primary') : env.DB;
-        return json(await roomRequest(db, path, body, key));
+        if (path === 'create') return json(await createRoom(db, body, key));
+        // Requests from already-open clients retain the original shared room.
+        const code = url.searchParams.has('room') ? url.searchParams.get('room').trim().toUpperCase() : 'CLASSROOM';
+        if (code !== 'CLASSROOM' && !codeFormat.test(code)) fail('Enter an eight-character room code.');
+        return json(await roomRequest(db, path, body, key, code));
       } catch (error) {
         if (error.rejected) return json({error:error.message, rejected:true}, error.status || 400);
         console.error('Shared room request failed', error.message);

@@ -186,7 +186,7 @@ $("toggleTradeFeed").onclick = () => {
 };
 function roomCount(s) {
   const students = num.format(s.players) + (s.players === 1 ? " player" : " players");
-  return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
+  return s.npcCount ? students + " · " + s.npcCount + " trading AI agents" : students;
 }
 const sizeButtons = Array.from(document.querySelectorAll("[data-percent]"));
 const sideName = side => side === "up" ? "Up" : "Down";
@@ -396,6 +396,7 @@ function paint(s) {
   );
   label("price", net ? num.format(s.network.blocks.length) + " blocks" : dollars.format(s.lastPrice));
   label("assetLabel", net ? "Bitcoin network" : "Historical Bitcoin price");
+  label("currency", "USD");
   show("currency", !net);
   const diff = s.lastPrice - s.startPrice;
   const distance = Math.abs(diff) < 1 ? "Less than $1" : dollars.format(Math.abs(diff));
@@ -416,7 +417,9 @@ function paint(s) {
   label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
   show("hostbar", s.sharedRoom || s.host);
-  label("hostLabel", s.sharedRoom ? "Classroom" : "Host controls");
+  label("hostLabel", s.sharedRoom ? "Room " + s.roomCode : "Host controls");
+  label("scanHeading", s.roomCode ? "Room " + s.roomCode : "Scan to join the room");
+  label("lobbyMessage", "Waiting for the class to start");
   show("marketUpdate", Boolean(s.host && s.currentMarketRules === false));
   const showLobbyInvite = (s.sharedRoom || s.host) && s.phase === "lobby" && scannable(s.joinUrl);
   $("hostbar").classList.toggle("scan-lobby", showLobbyInvite);
@@ -707,15 +710,16 @@ function modal(title, paragraphs, code) {
 $("guide").onclick = () =>
   modal("How to play", [
     "Enter your name or nickname to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
+    "The 120 trading AI agents are simulated traders with programmed strategies. They react to the price history shown so far and trade alongside the people in your room.",
     "Pick Up or Down. Market chance follows the room’s share prices. Player counts show how many classmates own that outcome. If you hold both, you count on both sides.",
     "Choose a percentage and tap Buy Up, Buy Down, Sell Up, or Sell Down. Buying uses that percentage of your spendable cash. Selling closes that percentage of your holdings on the chosen side. You can hold both sides. Your total includes unspent cash plus the money you could get by selling your bets. Profit or loss compares that total with your starting $100,000. At the finish, winning bets pay out and losing bets become worth $0. A tie goes to Down.",
   ]);
 $("invite").onclick = () =>
   modal(
-    "Join this room",
+    state.roomCode ? "Join room " + state.roomCode : "Join this room",
     [
       online
-        ? "Everyone uses this same link. Join with your name or watch the live leaderboard. The shared server keeps the room running when you close your tab."
+        ? "Share this room’s link or code with your group. Players and spectators use the same link. Other rooms run separately, and this room keeps running when you close your tab."
         : state.joinUrl.includes("127.0.0.1")
         ? "This preview is open on this computer. To invite phones, restart the classroom server in LAN mode as described in the project guide."
         : "Students on the same network can open this address on a phone or laptop and enter their name or nickname.",
@@ -728,31 +732,67 @@ function startOnline() {
   show("joinForm", false);
   show("ranks", false);
   show("launcher", true);
-  label("price", "Market lobby");
-  label("priceDelta", "Everyone shares this room");
-  label("ticketHeading", "Join the classroom");
-  label("launchText", "Connecting to the shared room. Join the game or watch the live leaderboard.");
-  const button = $("launchButton");
-  const connect = async () => {
-    if (button.disabled) return;
-    button.disabled = true;
-    label("launchButton", "Connecting…");
+  document.body.classList.add("choosing-room");
+  label("price", "Your group. Your game.");
+  label("assetLabel", "Bitcoin Replay rooms");
+  label("currency", "");
+  label("priceDelta", "Separate rooms. Same five-minute challenge.");
+  label("lobbyMessage", "Create a room and invite your group");
+  label("ticketHeading", "Choose a room");
+  label("launchText", "Start a room for your class or friends, then share its link or QR code.");
+  const api = window.BitcoinSharedRoom;
+  if (!api) {
+    label("status", "The room software could not load. Reload this page to try again.");
+    show("status", true);
+    $("launchButton").disabled = $("joinRoomButton").disabled = true;
+    return;
+  }
+  const entry = api.entry(), last = api.lastRoom();
+  let retryCode = entry.code, opening = false;
+  const controls = [$("launchButton"), $("joinRoomButton"), $("roomCode"), $("returnRoom")];
+  const openRoom = async (code, createNew = false) => {
+    if (opening) return;
+    opening = true;
+    controls.forEach(control => {control.disabled = true;});
+    label("launchButton", createNew ? "Creating room…" : "Connecting…");
     show("status", false);
     try {
-      if (!window.BitcoinSharedRoom) throw Error("The room software could not load. Reload this page to try again.");
-      session = BitcoinSharedRoom.connect();
+      if (createNew) code = await api.create();
+      retryCode = api.normalize(code);
+      session = api.connect(retryCode);
       await call("state");
+      document.body.classList.remove("choosing-room");
       show("launcher", false);
       refresh();
     } catch (error) {
-      label("status", error.message || "Could not connect to the shared room. Try again.");
+      if (error.invalidRoom || error.status === 404) retryCode = null;
+      label("status", error.message || "Could not connect to this room. Try again.");
       show("status", true);
-      label("launchButton", "Reconnect to classroom");
-      button.disabled = false;
+      label("launchButton", retryCode ? "Retry room " + retryCode : "Create a room");
+      show("roomForm", true);
+      controls.forEach(control => {control.disabled = false;});
+      opening = false;
     }
   };
-  button.onclick = connect;
-  connect();
+  $("launchButton").onclick = () => openRoom(retryCode, !retryCode);
+  $("roomForm").onsubmit = event => {
+    event.preventDefault();
+    openRoom($("roomCode").value);
+  };
+  show("returnRoom", Boolean(last && !entry.code));
+  if (last) {
+    label("returnRoom", "Return to room " + last);
+    $("returnRoom").onclick = () => openRoom(last);
+  }
+  if (entry.invalid) {
+    label("status", "That room link is incomplete. Enter a room code or create a new room.");
+    show("status", true);
+  }
+  if (entry.code) {
+    label("launchText", "Opening room " + entry.code + ". Join the game or watch its live leaderboard.");
+    show("roomForm", false);
+    openRoom(entry.code);
+  }
 }
 if (online) startOnline();
 else refresh();

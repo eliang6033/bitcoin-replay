@@ -184,3 +184,12 @@
 .my-trades li { display: grid; gap: 5px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .my-trades small { color: var(--soft); }
 .log-download { margin-top: 14px; font-size: 12px; padding: 7px 10px; }
+.room-code-form { margin: 25px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+.room-code-form label { display: block; margin-bottom: 9px; color: #c0cad7; font-size: 13px; }
+.room-code-row { display: flex; gap: 8px; }
+.room-code-row input { min-width: 0; flex: 1; width: 100%; text-transform: uppercase; letter-spacing: .08em; }
+.room-code-row button { flex-shrink: 0; }
+.exchange .room-return { margin-top: 12px; color: #b7d7fa; background: transparent; }
+.room-note { color: var(--soft); font-size: 12px; line-height: 1.6; margin: 16px 0 0; }
+.choosing-room .chartfoot, .choosing-room .timer { display: none; }
+.choosing-room #price { font-size: clamp(28px, 3.3vw, 44px); line-height: 1.2; letter-spacing: -.04em; }

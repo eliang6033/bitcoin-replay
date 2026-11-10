@@ -31,7 +31,7 @@ async function fixture(t) {
 test('one shared room: spectators are not players; identities survive another server instance', async t => {
   const f = await fixture(t);
   assert.equal(f.first.players,0); assert.equal(f.first.me,null); assert.equal(f.first.host,false);
-  assert.equal(f.first.sharedRoom,true); assert.equal(f.first.joinUrl,'https://eliang6033.github.io/bitcoin-replay/');
+  assert.equal(f.first.sharedRoom,true); assert.equal(f.first.joinUrl,'https://eliang6033.github.io/bitcoin-replay/?room=CLASSROOM');
   assert.equal((await f.join('Eli',A)).status,200);
   assert.equal((await f.join('Jerry',B)).status,200);
   const recovered = await f.send('state',null,A,f.make());
@@ -109,7 +109,7 @@ test('public service rejects unsupported methods, malformed payloads, and unwant
   assert.equal(preflight.status,204); assert.match(preflight.headers.get('access-control-allow-headers'),/Authorization/);
 });
 
-test('client uses one endpoint, canonicalizes legacy links, restores identity, and never auto-retries trades', async () => {
+test('client preserves room links, restores identity, offers a chooser at the root and never auto-retries trades', async () => {
   const profile=new Map(); let calls=[], revision=1;
   function tab(url) {
     const location={href:url};
@@ -119,17 +119,78 @@ test('client uses one endpoint, canonicalizes legacy links, restores identity, a
       fetch:async (url,options)=>{calls.push({url,options}); return {ok:true,json:async()=>({roundId:'one-room',revision:revision++})};},
     });
     vm.runInContext(readFileSync(require.resolve('../public/shared-room.js'),'utf8'),ctx);
-    return {ctx,session:ctx.BitcoinSharedRoom.connect(),location};
+    const entry = ctx.BitcoinSharedRoom.entry();
+    return {ctx,entry,session:entry.code ? ctx.BitcoinSharedRoom.connect(entry.code) : null,location};
   }
-  const a=tab('https://eliang6033.github.io/bitcoin-replay/?host=old#leaderboard');
-  assert.equal(a.location.href,'https://eliang6033.github.io/bitcoin-replay/#leaderboard');
+  assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/').session,null);
+  assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/?room=bad').entry.invalid,true);
+  const a=tab('https://eliang6033.github.io/bitcoin-replay/?room=abcd2345#leaderboard');
   await a.session.request('state');
+  assert.equal(a.location.href,'https://eliang6033.github.io/bitcoin-replay/?room=ABCD2345#leaderboard');
+  assert(calls[0].url.endsWith('/api/state?room=ABCD2345'));
   const identity=calls[0].options.headers.Authorization;
   await a.session.request('join',{name:'Eli'});
   assert.equal(JSON.parse(calls[1].options.body).roundId,'one-room');
-  const b=tab('https://eliang6033.github.io/bitcoin-replay/?room=old');
+  const b=tab('https://eliang6033.github.io/bitcoin-replay/?host='+'a'.repeat(24));
+  assert.equal(b.entry.code,'CLASSROOM');
   await b.session.request('state'); assert.equal(calls[2].options.headers.Authorization,identity);
+  assert(calls[2].url.endsWith('?room=CLASSROOM'));
+  assert.equal(tab('https://eliang6033.github.io/bitcoin-replay/').ctx.BitcoinSharedRoom.lastRoom(),'CLASSROOM');
   let attempts=0; b.ctx.fetch=async()=>{attempts++;throw Error('Connection lost');};
   await assert.rejects(b.session.request('trade',{orderId:'test'}),/Connection lost/);
   assert.equal(attempts,1);
+});
+
+test('rooms isolate names, cash, orders, NPCs, clocks, rankings, resets and audit logs', async t => {
+  const f = await fixture(t);
+  const create = async (token) => {
+    const r = await f.send('create',{creationId:crypto.randomUUID()},token);
+    assert.equal(r.status,200); assert.match(r.data.roomCode,/^[A-HJ-NP-Z2-9]{8}$/);
+    return r.data.roomCode;
+  };
+  const [a,b] = await Promise.all([create(A),create(B)]);
+  assert.notEqual(a,b);
+  const call = (code,path,body,token=A) => f.send(path+'?room='+code,body,token);
+  const sa=(await call(a,'state')).data, sb=(await call(b,'state')).data;
+  assert.equal(sa.joinUrl,'https://eliang6033.github.io/bitcoin-replay/?room='+a);
+  assert.notEqual(sa.roundId,sb.roundId);
+  assert.equal((await call(a,'join',{name:'Eli',roundId:sa.roundId})).status,200);
+  assert.equal((await call(b,'join',{name:'Eli',roundId:sb.roundId})).status,200);
+  await call(a,'control',{action:'start',roundId:sa.roundId});
+  f.advance(10000);
+  const trade={side:'up',action:'buyCash',amount:25,orderId:'isolated-order',roundId:sa.roundId};
+  assert.equal((await call(a,'trade',trade)).status,200);
+  const untouched=(await call(b,'state')).data;
+  assert.equal(untouched.phase,'lobby'); assert.equal(untouched.remaining,300);
+  assert.equal(untouched.me.cash,100); assert.equal(untouched.npcTrades,0); assert.equal(untouched.myTrades.length,0);
+  assert.deepEqual(untouched.rankings,[{name:'Eli',points:100}]);
+  assert.equal((await call(b,'trade',trade)).status,409);
+  assert.equal((await call(a,'audit')).data.trades.length,1);
+  assert.equal((await call(b,'audit')).data.trades.length,0);
+  f.advance(300000);
+  const ended=(await call(a,'state')).data;
+  await call(a,'control',{action:'reset',roundId:ended.roundId},C);
+  const preserved=(await call(b,'state')).data;
+  assert.equal(preserved.roundId,sb.roundId); assert.equal(preserved.players,1);
+  assert.equal((await f.send('state')).data.players,0); // Legacy room is separate too.
+  const persisted=(await f.send('state?room='+b,null,A,f.make())).data;
+  assert.equal(persisted.me.name,'Eli'); assert.equal(persisted.roomCode,b);
+});
+
+test('creation retries return the same room without resetting it; unknown codes never create rooms', async t => {
+  const f=await fixture(t), body={creationId:crypto.randomUUID()};
+  const both=await Promise.all([f.send('create',body,A),f.send('create',body,A)]);
+  assert.equal(both[0].data.roomCode,both[1].data.roomCode);
+  const code=both[0].data.roomCode;
+  const before=(await f.send('state?room='+code)).data;
+  await f.send('join?room='+code,{name:'Eli',roundId:before.roundId},A);
+  await f.send('control?room='+code,{action:'start',roundId:before.roundId},A);
+  await f.send('create',body,A);
+  const after=(await f.send('state?room='+code,null,A)).data;
+  assert.equal(after.phase,'trading'); assert.equal(after.roundId,before.roundId); assert.equal(after.players,1);
+  assert.equal((await f.send('state?room=ZZZZZZZZ')).status,404);
+  assert.equal((await f.send('state?room=')).status,400);
+  assert.equal((await f.send('create',{})).status,401);
+  assert.equal((await f.send('create',{creationId:'bad'},A)).status,400);
+  assert.equal(await f.db.prepare('SELECT id FROM rooms WHERE id = ?').bind('ZZZZZZZZ').first(),null);
 });
