@@ -12,7 +12,7 @@ Retain buckets whose opening timestamps are at or after 11:30 and strictly befor
 
 The chart begins with the opening trade of the 11:30 bucket, $37,978.10. Each subsequent observation is one completed bucket's closing trade, displayed at the end of its minute. The 15:29 bucket closes at $37,024.50. DOWN wins. These are historical one-minute price observations. Any animated line between samples is a visual transition. Class UP/DOWN ticket quotes come from the classroom simulator.
 
-Polymarket was operating by June 2020. Its public catalog of markets closing around this replay did not yield a contract for the same four-hour Bitcoin question. The game uses its own orders to price Higher and Lower tickets. This lets students trade alongside simulated participants and change the price other teams see. [CFTC record](https://www.cftc.gov/PressRoom/PressReleases/8478-22) · [Polymarket archive query](https://gamma-api.polymarket.com/markets?closed=true&end_date_min=2021-05-18&end_date_max=2021-05-21&limit=100)
+Polymarket was operating by June 2020. Its public catalog of markets closing around this replay did not yield a contract for the same four-hour Bitcoin question. The game uses its own orders to price Higher and Lower tickets. This lets students trade alongside simulated participants and change the price other players see. [CFTC record](https://www.cftc.gov/PressRoom/PressReleases/8478-22) · [Polymarket archive query](https://gamma-api.polymarket.com/markets?closed=true&end_date_min=2021-05-18&end_date_max=2021-05-21&limit=100)
 
 ## Block series
 
@@ -25,3 +25,9 @@ There are 21 qualifying blocks, heights 684188–684208. The sum of their report
 ## Snapshot checks
 
 Checked 240 consecutive one-minute buckets and their OHLC bounds, yielding 241 plotted points. Checked the source chain's parent links and flanking timestamps. The archived JSON has SHA-256 `c2c0d9df7a642ab34c9a63a9fd388b42f90d96176627ec636d599f248dcf1542`. The snapshot can run in class without a live market-data connection.
+
+## Prediction-market reference
+
+On 9 November 2026, the public catalog query above returned eleven markets, with no BTC contract for this exact four-hour window. A separate archived Polymarket five-minute BTC market from 2 April 2026, 9:50–9:55 p.m. ET, returned five one-minute samples for Up: 57.5%, 53.5%, 25.5%, 45.5%, 52.5%. This illustrates a reversal and informed the simulated crowd behavior. The classroom market combines actual student orders and NPC orders. Those five Polymarket samples are not substituted for classroom prices or labeled as this 2021 replay.
+
+[Archived market](https://polymarket.com/event/btc-updown-5m-1775181000) · [Public price query](https://clob.polymarket.com/prices-history?market=43327618351213667646391460691177105630991180325414735346402735306929604801558&startTs=1775181000&endTs=1775181300&fidelity=1) · [Official historical-data interface](https://github.com/Polymarket/agent-skills/blob/main/market-data.md)

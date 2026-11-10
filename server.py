@@ -79,6 +79,7 @@ class Room:
         self.next_npc_ms = 1100
         self.burst_until_ms = 0
         self.last_npc_minute = 0
+        self.sentiment = 0
         self.ticket_history = []
         self.warm_market()
 
@@ -130,7 +131,8 @@ class Room:
         uncertainty = 0.006 + 0.031 * math.sqrt(1 - minute / 240)
         momentum = (-0.3 if seat % 5 == 0 else 1.0) * math.tanh(recent / 0.022)
         # The NPC belief spans about 2% to 98% on the market's log-odds scale.
-        target = max(-3.9, min(3.9, since_open / uncertainty + momentum))
+        opinion = (-0.55 if seat % 4 == 0 else 1) * self.sentiment
+        target = max(-3.9, min(3.9, since_open / uncertainty + momentum + opinion))
         gap = target - (self.units["up"] - self.units["down"]) / LIQUIDITY
         lean_up = 0.5 + 0.46 * math.tanh(1.5 * gap)
         side = "up" if self.random() < lean_up else "down"
@@ -161,6 +163,7 @@ class Room:
                 if abs(math.log(self.prices[i]["price"] / self.prices[i - 1]["price"])) >= threshold:
                     self.burst_until_ms = at + 3500
             self.last_npc_minute = minute
+            self.sentiment = 0.96 * self.sentiment + (self.random() - 0.5) * 0.8
             if self.npc_order(minute, at / 1000):
                 self.npc_trades += 1
                 self.record_ticket(at / 1000)
@@ -219,7 +222,7 @@ class Room:
         other = "down" if side == "up" else "up"
         # Once both outcomes are level, each extra share costs at least half
         # of the payout, giving a finite upper bound even at a tiny price.
-        high = max(0, self.units[other] - self.units[side]) + math.ceil(2 * budget / PAYOUT)
+        high = math.ceil(max(0, self.units[other] - self.units[side]) + 2 * budget / PAYOUT)
         low = 0
         while low < high:
             mid = (low + high + 1) // 2
@@ -227,6 +230,20 @@ class Room:
                 low = mid
             else:
                 high = mid - 1
+        return low
+
+    def shares_for_cash(self, side, budget):
+        if budget <= 0:
+            return 0
+        other = "down" if side == "up" else "up"
+        low = 0
+        high = max(0, self.units[other] - self.units[side]) + 2 * budget / PAYOUT
+        for _ in range(60):
+            mid = (low + high) / 2
+            if self.quote(side, mid) <= budget:
+                low = mid
+            else:
+                high = mid
         return low
 
     def cash_out_value(self, player):
@@ -242,20 +259,30 @@ class Room:
             buy, sell = {}, {}
             for percent in PERCENTAGES:
                 n_buy = self.affordable(side, player["cash"] * percent / 100)
-                n_sell = max(1, player[side] * percent // 100) if player[side] else 0
+                n_sell = min(player[side], max(1, player[side] * percent // 100)) if player[side] else 0
                 buy[percent] = {"quantity": n_buy, "total": money(self.quote(side, n_buy))}
                 sell[percent] = {"quantity": n_sell, "total": money(abs(self.quote(side, -n_sell)))}
-            result[side] = {"buy": buy, "sell": sell}
+            spend = {}
+            for choice in ("10", "25", "50", "all"):
+                budget = player["cash"] if choice == "all" else min(float(choice), player["cash"])
+                spend[choice] = {"amount": money(budget), "quantity": self.shares_for_cash(side, budget)}
+            half = player[side] / 2
+            result[side] = {"buy": buy, "sell": sell, "spend": spend, "exit": {
+                "half": {"quantity": half, "total": money(-self.quote(side, -half))},
+                "all": {"quantity": player[side], "total": money(-self.quote(side, -player[side]))},
+            }}
         return result
 
-    def trade(self, key, side, action, quantity, order_id=None, quote_limit=None):
+    def trade(self, key, side, action, quantity=1, order_id=None, quote_limit=None, amount=None, min_quantity=None):
         elapsed = self.update()
+        cash_order = action == "buyCash"
+        signature = (side, action, amount if cash_order else quantity)
         if order_id is not None:
             if not isinstance(order_id, str) or not 1 <= len(order_id) <= 64:
                 raise GameError("Invalid trade reference.")
             previous = self.executed.get((key, order_id))
             if previous is not None:
-                if previous != (side, action, quantity):
+                if previous != signature:
                     raise GameError("Trade reference already used for a different order.", 409)
                 return
         if self.phase != "trading":
@@ -263,22 +290,34 @@ class Room:
         if key not in self.players:
             raise GameError("Join the room first.", 403)
         all_positions = side == "both" and action == "sellAll"
-        if not all_positions and (side not in ("up", "down") or action not in ("buy", "sell")):
+        if not all_positions and (side not in ("up", "down") or action not in ("buy", "sell", "buyCash")):
             raise GameError("Choose an outcome and a trade.")
-        if type(quantity) is not int or not 1 <= quantity <= 2**53 - 1:
-            raise GameError("Choose a positive whole number of shares.")
         player = self.players[key]
+        if cash_order:
+            if type(amount) not in (int, float) or not math.isfinite(amount) or not 0 < amount <= player["cash"] + 0.000051:
+                raise GameError("Choose an amount within your available cash.")
+            amount = min(amount, player["cash"])
+            quantity = self.shares_for_cash(side, amount)
+            if min_quantity is not None and (type(min_quantity) not in (int, float) or not math.isfinite(min_quantity) or min_quantity < 0):
+                raise GameError("Invalid minimum purchase.")
+            if min_quantity is not None and quantity < min_quantity:
+                raise GameError("The price changed. Check the new total and try again.", 409)
+        if type(quantity) not in (int, float) or not math.isfinite(quantity) or not 0 < quantity <= 2**53 - 1:
+            raise GameError("Choose a positive number of shares.")
+        if action == "buy" and type(quantity) is not int:
+            raise GameError("Choose a whole number of shares.")
         if all_positions and quantity != player["up"] + player["down"]:
             raise GameError("Your holdings changed. Check your balance and try again.", 409)
-        delta = quantity if action == "buy" else -quantity
+        buying = action == "buy" or cash_order
+        delta = quantity if buying else -quantity
         if not all_positions and delta < 0 and player[side] < quantity:
             raise GameError("You can only sell shares you own.", 409)
-        cost = -self.cash_out_value(player) if all_positions else self.quote(side, delta)
+        cost = amount if cash_order else -self.cash_out_value(player) if all_positions else self.quote(side, delta)
         if quote_limit is not None:
             if type(quote_limit) not in (int, float) or not 0 <= quote_limit <= quantity * PAYOUT:
                 raise GameError("Invalid total quote.")
             total = money(abs(cost))
-            if (action == "buy" and total > quote_limit) or (action != "buy" and total < quote_limit):
+            if (buying and total > quote_limit) or (not buying and total < quote_limit):
                 raise GameError("The price changed. Check the new total and try again.", 409)
         if cost > player["cash"] + 1e-9:
             raise GameError("You need more practice cash for this trade.", 409)
@@ -290,9 +329,9 @@ class Room:
         else:
             self.fill(player, side, delta, cost)
         self.record_ticket(elapsed)
-        self.record_trade(elapsed, "team", player["name"], action, side, quantity, cost)
+        self.record_trade(elapsed, "team", player["name"], "buy" if cash_order else action, side, quantity, cost)
         if order_id is not None:
-            self.executed[key, order_id] = (side, action, quantity)
+            self.executed[key, order_id] = signature
 
     def host_action(self, action):
         self.update()
@@ -435,7 +474,7 @@ class Handler(BaseHTTPRequestHandler):
                     headers["Set-Cookie"] = self.cookie("br_player", key)
                 elif path == "/api/trade":
                     room.trade(key, payload.get("side"), payload.get("action"), payload.get("quantity", 1),
-                               payload.get("orderId"), payload.get("quoteLimit"))
+                               payload.get("orderId"), payload.get("quoteLimit"), payload.get("amount"), payload.get("minQuantity"))
                 elif path == "/api/host":
                     if not host:
                         raise GameError("Only the host can use this control.", 403)

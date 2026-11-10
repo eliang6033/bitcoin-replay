@@ -13,9 +13,7 @@ const practice = value => dollars.format(value * 1000);
 const timer = (t) =>
   String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 let state,
-  selectedSide = "up",
-  orderMode = "buy",
-  percent = 25,
+  spendChoice = "25",
   busy = false,
   sequence = 0,
   applied = 0;
@@ -28,7 +26,6 @@ const hostActions = {
   discussion: ["New class round", "reset"],
 };
 const svgNS = "http://www.w3.org/2000/svg";
-const quoteAllowance = 0.15;
 function shape(tag, attrs, content) {
   const e = document.createElementNS(svgNS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -187,9 +184,8 @@ function roomCount(s) {
   const students = num.format(s.players) + (s.players === 1 ? " player" : " players");
   return s.npcCount ? students + " · " + s.npcCount + " simulated traders" : students;
 }
-const quantityControl = $("quantity");
-const sizeButtons = Array.from(document.querySelectorAll("#sizing [data-size]"));
-const shareLabel = quantity => quantity === 1 ? "share" : "shares";
+const spendButtons = Array.from(document.querySelectorAll("[data-amount]"));
+const exitButtons = Array.from(document.querySelectorAll("[data-exit]"));
 const sideName = side => side === "up" ? "Up" : "Down";
 function updateOutcomeRows(s) {
   const up = Math.min(100, Math.max(0, s.upPrice * 10));
@@ -203,73 +199,51 @@ function updateOutcomeRows(s) {
     label("odds" + name, percentage);
     $("bar" + name).style.width = chance + "%";
     label("holders" + name, Number.isInteger(holders) ? holders + (holders === 1 ? " player" : " players") : "Unavailable");
-    const selected = side === selectedSide;
-    label("select" + name, selected ? "Selected ✓" : "Pick " + name);
-    const pick = $("pick" + name);
-    pick.setAttribute("aria-pressed", selected);
-    pick.setAttribute("aria-label", name + ", " + percentage + " market chance" +
-      (Number.isInteger(holders) ? ", " + holders + (holders === 1 ? " player holding" : " players holding") : ""));
-    pick.disabled = busy;
   }
 }
-function orderPreview(action) {
-  if (state.bulk) return state.bulk[selectedSide][action][percent];
-  // Hosts running a previous release still quote purchases of 1–10 shares.
-  const quantity = state.quoteTotals ? Number(quantityControl.value) : 1;
-  const key = action + (selectedSide === "up" ? "Up" : "Down");
-  return {quantity, total: state.quoteTotals?.[key]?.[quantity - 1] ?? state.quotes[key]};
-}
-function executionLimit(action, quote, quantity) {
-  if (!state.npcCount) return quote;
-  const allowance = quantity * quoteAllowance;
-  if (action === "buy") {
-    const budget = (state.me?.cash ?? 100) * (state.bulk ? percent / 100 : 1);
-    return Math.min(budget, quantity * 10, quote + allowance);
-  }
-  return Math.max(0, quote - allowance);
+function exitQuote(side, portion) {
+  const quotes = state.bulk?.[side];
+  return quotes?.exit?.[portion] ?? quotes?.sell[portion === "all" ? 100 : 50];
 }
 function setOrders() {
   const s = state;
-  if (!s || !s.me) return;
-  if (!s.quoteTotals) quantityControl.value = "1";
-  quantityControl.disabled = busy || !s.quoteTotals;
-  show("sizing", Boolean(s.bulk));
-  show("legacySize", !s.bulk);
-  show("sizeInfo", Boolean(s.bulk));
-  for (const button of sizeButtons) {
-    button.setAttribute("aria-pressed", Number(button.dataset.size) === percent);
-    button.disabled = busy;
+  if (!s?.me) return;
+  const dollarOrders = Boolean(s.bulk?.up.spend);
+  const trading = s.phase === "trading";
+  for (const button of spendButtons) {
+    const choice = button.dataset.amount;
+    button.setAttribute("aria-pressed", choice === spendChoice);
+    button.disabled = busy || !dollarOrders || (choice !== "all" && Number(choice) > s.me.cash);
   }
-  const name = sideName(selectedSide);
-  const owned = s.me[selectedSide];
-  label("owned", `You hold ${owned} “${name}” ${shareLabel(owned)}`);
-  for (const action of ["buy", "sell"]) {
-    $(action).setAttribute("aria-pressed", orderMode === action);
-    $(action).disabled = busy;
+  for (const side of ["up", "down"]) {
+    const name = sideName(side);
+    const quote = s.bulk?.[side].spend?.[spendChoice];
+    const canBuy = quote && quote.amount > 0 && (spendChoice === "all" || Number(spendChoice) <= s.me.cash);
+    label("cost" + name, canBuy ? practice(quote.amount) : s.me.cash > 0 ? "Choose a smaller amount" : "No available cash");
+    $("buy" + name).disabled = busy || !trading || !canBuy;
+    const held = s.me[side] > 0;
+    show("holding" + name, held);
+    if (held) label("value" + name, practice(exitQuote(side, "all")?.total ?? 0));
   }
-  const buying = orderMode === "buy";
-  const {quantity, total} = orderPreview(orderMode);
-  const canFill = quantity > 0 && (buying ? total <= s.me.cash : quantity <= owned);
-  label("sizePrompt", buying ? "How much of your cash?" : `How many of your ${name} shares?`);
-  label("orderOutcome", name + " shares");
-  const verb = buying ? "Buy" : "Sell";
-  label("orderActionLabel", canFill ? `${verb} ${quantity} ${name} ${shareLabel(quantity)}` : verb + " " + name + " shares");
-  let amount;
-  if (canFill) amount = (buying ? "Pay ≈ " : "Receive ≈ ") + practice(total);
-  else if (!buying) amount = owned ? "Choose fewer shares" : `No ${name} shares to sell`;
-  else amount = s.bulk?.[selectedSide].buy[100].quantity > 0 && percent < 100 ? "Try a larger size" : "Not enough cash";
-  label("orderAmount", amount);
-  const place = $("placeOrder");
-  place.disabled = busy || s.phase !== "trading" || !canFill;
-  place.title = canFill ? (buying ? "Maximum cost " : "Minimum return ") + practice(executionLimit(orderMode, total, quantity)) : "";
+  for (const button of exitButtons) {
+    const side = button.dataset.exit;
+    const portion = button.dataset.fraction;
+    const quote = exitQuote(side, portion);
+    button.disabled = busy || !trading || !quote?.quantity;
+    button.title = quote?.quantity ? "Receive about " + practice(quote.total) : "";
+    button.setAttribute("aria-label", (portion === "half" ? "Sell half of " : "Sell all ") + sideName(side) + (quote ? ", receive about " + practice(quote.total) : ""));
+  }
   const all = s.bulk?.cashOut;
-  show("cashOutAll", Boolean(all?.quantity) && s.phase === "trading");
+  show("positions", Boolean(s.me.up || s.me.down));
+  show("cashOutAll", Boolean(all?.quantity) && Boolean(s.me.up && s.me.down));
   if (all?.quantity) {
-    label("cashOutAll", "Cash out everything ≈ " + practice(all.total));
-    $("cashOutAll").disabled = busy;
-    $("cashOutAll").setAttribute("aria-label", `Cash out everything, all ${all.quantity} ${shareLabel(all.quantity)} for about ${practice(all.total)}`);
-    $("cashOutAll").title = "Sell all shares in both predictions for about " + practice(all.total);
+    label("cashOutAll", "Sell both bets ≈ " + practice(all.total));
+    $("cashOutAll").disabled = busy || !trading;
   }
+  const note = s.phase === "lobby" ? "Buying opens when the host starts the clock." :
+    trading && !dollarOrders ? "Ask the host to refresh their page to enable dollar purchases." : "";
+  label("orderNote", note);
+  show("orderNote", Boolean(note));
 }
 let finalRankRound;
 function drawStandings(s) {
@@ -330,13 +304,9 @@ function paint(s) {
   const old = state;
   state = s;
   const net = ["network", "discussion"].includes(s.phase),
-    done = Boolean(s.reveal),
-    inGame = s.phase === "trading";
+    done = Boolean(s.reveal);
   if (old && old.roundId !== s.roundId) {
-    selectedSide = "up";
-    orderMode = "buy";
-    percent = 25;
-    if (quantityControl) quantityControl.value = "1";
+    spendChoice = "25";
     label("notice", "");
     $("ranks").open = false;
   }
@@ -416,20 +386,18 @@ function paint(s) {
   if (!done) updateOutcomeRows(s);
   show("tradePanel", !!s.me && !done);
   label("seat", s.me ? s.me.name : done ? "Spectator" : "");
-  show("positionReturn", Boolean(s.me && (s.me.up || s.me.down || s.me.cash !== 100)) && inGame);
+  show("positionReturn", Boolean(s.me));
   if (s.me) {
-    label("wallet", practice(done ? s.me.points : s.me.cash));
-    if (inGame) {
-      const gain = (s.bulk ? s.me.cash + s.bulk.cashOut.total : s.me.points) - 100;
-      label("gain", (gain < 0 ? "−" : "+") + practice(Math.abs(gain)));
-      $("gain").classList.toggle("loss", gain < 0);
-    }
+    const value = done ? s.me.points : s.bulk ? s.me.cash + s.bulk.cashOut.total : s.me.points;
+    const gain = Math.round(value * 1000) - 100000;
+    label("wallet", practice(value));
+    label("gain", (gain < 0 ? "−" : gain > 0 ? "+" : "") + dollars.format(Math.abs(gain)));
+    $("gain").classList.toggle("loss", gain < 0);
+    label("availableCash", practice(s.me.cash));
+    label("worthLabel", done ? "Final total" : "Total if you cash out now");
+    label("gainLabel", done ? "Your final profit / loss" : "Your profit / loss");
   }
-  label("ticketHeading", done ? "Final practice balance" : s.me ? "Your practice cash" : "Join the market");
-  const note = !s.quoteTotals ? "This host supports one share at a time." :
-    s.phase === "lobby" ? "You can trade when the host starts the clock." : "";
-  label("orderNote", note);
-  show("orderNote", Boolean(note));
+  label("ticketHeading", s.me ? "Your money" : done ? "Results" : "Join the market");
   show("limitInfo", Boolean(s.npcCount));
   setOrders();
   show("result", done);
@@ -517,9 +485,8 @@ async function submit(path, body) {
     label(
       "notice",
       path === "trade"
-        ? (body.action === "sellAll"
-            ? "Cashed out all " + body.quantity + " " + shareLabel(body.quantity)
-            : (body.action === "buy" ? "Bought " : "Sold ") + body.quantity + " " + sideName(body.side) + " " + shareLabel(body.quantity)) +
+        ? (body.action === "sellAll" ? "Sold both bets" :
+          body.action === "buyCash" || body.action === "buy" ? "Bought " + sideName(body.side) : "Sold " + sideName(body.side)) +
           " for " + practice(Math.abs(updated.me.cash - previousCash)) + "."
         : "",
     );
@@ -557,36 +524,32 @@ $("joinForm").onsubmit = (e) => {
   e.preventDefault();
   submit("join", { name: $("playerName").value.trim() });
 };
-for (const side of ["up", "down"]) {
-  $(side === "up" ? "pickUp" : "pickDown").onclick = () => {
-    if (!state || busy) return;
-    selectedSide = side;
-    updateOutcomeRows(state);
-    setOrders();
-  };
-}
-quantityControl.onchange = setOrders;
-for (const button of sizeButtons) {
+for (const button of spendButtons) {
   button.onclick = () => {
-    percent = Number(button.dataset.size);
-    setOrders();
-  };
-}
-for (const action of ["buy", "sell"]) {
-  $(action).onclick = () => {
     if (busy) return;
-    orderMode = action;
+    spendChoice = button.dataset.amount;
     setOrders();
   };
 }
-$("placeOrder").onclick = () => {
-  if (busy || $("placeOrder").disabled) return;
-  const {quantity, total} = orderPreview(orderMode);
-  submit("trade", {side: selectedSide, action: orderMode, quantity, quoteLimit: executionLimit(orderMode, total, quantity)});
-};
+for (const side of ["up", "down"]) {
+  $("buy" + sideName(side)).onclick = () => {
+    if (busy || $("buy" + sideName(side)).disabled) return;
+    const quote = state.bulk[side].spend[spendChoice];
+    submit("trade", { side, action: "buyCash", amount: quote.amount, minQuantity: quote.quantity * 0.97 });
+  };
+}
+for (const button of exitButtons) {
+  button.onclick = () => {
+    if (busy || button.disabled) return;
+    const side = button.dataset.exit;
+    const {quantity, total} = exitQuote(side, button.dataset.fraction);
+    submit("trade", { side, action: "sell", quantity, quoteLimit: Math.max(0, total * 0.97) });
+  };
+}
 $("cashOutAll").onclick = () => {
+  if (busy || $("cashOutAll").disabled) return;
   const {quantity, total} = state.bulk.cashOut;
-  submit("trade", {side: "both", action: "sellAll", quantity, quoteLimit: executionLimit("sell", total, quantity)});
+  submit("trade", {side: "both", action: "sellAll", quantity, quoteLimit: Math.max(0, total * 0.97)});
 };
 new ResizeObserver(() => {
   if (state) draw(state, ["network", "discussion"].includes(state.phase));
@@ -656,7 +619,7 @@ $("guide").onclick = () =>
   modal("How to play", [
     "Enter your name or nickname to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
     "Pick Up or Down. Market chance follows the room’s share prices. Player counts show how many classmates own that outcome. If you hold both, you count on both sides.",
-    "Choose Buy or Sell, choose a size, then press the order button to trade. Buying uses your available practice cash. Selling returns cash for shares you own. At the finish each correct share pays $10,000 and the other side pays $0. A tie goes to Down.",
+    "Choose a dollar amount, then tap Buy Up or Buy Down to place a bet. Sell half or all of an open bet with its own buttons. Your total includes unspent cash plus the money you could get by selling your bets. Profit or loss compares that total with your starting $100,000. At the finish, winning bets pay out and losing bets become worth $0. A tie goes to Down.",
   ]);
 $("invite").onclick = () =>
   modal(

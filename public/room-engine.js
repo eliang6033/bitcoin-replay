@@ -111,6 +111,7 @@
         liquidity: enabled ? LIQUIDITY : LEGACY_LIQUIDITY,
         randomState: this.seed ?? Number.parseInt(this.roundId.replace(/-/g, "").slice(0, 8), 16),
         nextMs: 1100, lastMinute: 0, burstUntilMs: 0, trades: 0,
+        sentiment: 0,
         traders: [], history: [],
       };
       if (!enabled) {
@@ -184,7 +185,9 @@
       const uncertainty = 0.006 + 0.031 * Math.sqrt(1 - minute / HISTORICAL_MINUTES);
       const momentum = (who % 5 === 0 ? -0.3 : 1.0) * Math.tanh(recent / 0.022);
       // A simulated belief from about 2% to 98%, on the market's log-odds scale.
-      const target = Math.max(-3.9, Math.min(3.9, sinceOpen / uncertainty + momentum));
+      const sentiment = this.market.sentiment ?? 0;
+      const opinion = (who % 4 === 0 ? -0.55 : 1) * sentiment;
+      const target = Math.max(-3.9, Math.min(3.9, sinceOpen / uncertainty + momentum + opinion));
       const gap = target - (this.units.up - this.units.down) / this.market.liquidity;
       const leanUp = 0.5 + 0.46 * Math.tanh(1.5 * gap);
       const side = this.random() < leanUp ? "up" : "down";
@@ -220,6 +223,9 @@
           }
         }
         m.lastMinute = minute;
+        // Correlated crowd sentiment creates runs and reversals. The schedule
+        // and RNG are saved so refreshing cannot change a round's outcome.
+        m.sentiment = 0.96 * (m.sentiment ?? 0) + (this.random() - 0.5) * 0.8;
         if (this.npcOrder(minute, at / 1000)) {
           m.trades++;
           this.recordTicket(at / 1000);
@@ -250,12 +256,25 @@
       const other = side === "up" ? "down" : "up";
       // After the two outcomes are level, every further purchase costs at
       // least half the payout. This bounds the search even at a tiny quote.
-      let high = Math.max(0, this.units[other] - this.units[side]) + Math.ceil(2 * budget / PAYOUT);
+      let high = Math.ceil(Math.max(0, this.units[other] - this.units[side]) + 2 * budget / PAYOUT);
       let low = 0;
       while (low < high) {
         const mid = Math.ceil((low + high) / 2);
         if (this.quote(side, mid) <= budget + 1e-9) low = mid;
         else high = mid - 1;
+      }
+      return low;
+    }
+
+    sharesForCash(side, budget) {
+      if (budget <= 0) return 0;
+      const other = side === "up" ? "down" : "up";
+      let low = 0;
+      let high = Math.max(0, this.units[other] - this.units[side]) + 2 * budget / PAYOUT;
+      for (let i = 0; i < 60; i++) {
+        const mid = (low + high) / 2;
+        if (this.quote(side, mid) <= budget) low = mid;
+        else high = mid;
       }
       return low;
     }
@@ -274,11 +293,20 @@
         const buy = {}, sell = {};
         for (const percent of PERCENTAGES) {
           const nBuy = this.affordable(side, player.cash * percent / 100);
-          const nSell = player[side] ? Math.max(1, Math.floor(player[side] * percent / 100)) : 0;
+          const nSell = Math.min(player[side], player[side] ? Math.max(1, Math.floor(player[side] * percent / 100)) : 0);
           buy[percent] = { quantity: nBuy, total: money(this.quote(side, nBuy)) };
           sell[percent] = { quantity: nSell, total: money(Math.abs(this.quote(side, -nSell))) };
         }
-        bulk[side] = { buy, sell };
+        const spend = {};
+        for (const choice of ["10", "25", "50", "all"]) {
+          const budget = choice === "all" ? player.cash : Math.min(Number(choice), player.cash);
+          spend[choice] = { amount: money(budget), quantity: this.sharesForCash(side, budget) };
+        }
+        const half = player[side] / 2;
+        bulk[side] = { buy, sell, spend, exit: {
+          half: { quantity: half, total: money(-this.quote(side, -half)) },
+          all: { quantity: player[side], total: money(-this.quote(side, -player[side])) },
+        } };
       }
       return bulk;
     }
@@ -301,9 +329,11 @@
       this.players.set(key, { name, cash: 100, up: 0, down: 0 });
     }
 
-    trade(key, { side, action, quantity = 1, orderId, quoteLimit }, now) {
+    trade(key, { side, action, quantity = 1, amount, minQuantity, orderId, quoteLimit }, now) {
       const player = this.players.get(key);
       if (!player) error("Join the room first.", 403);
+      const cashOrder = action === "buyCash";
+      const signature = [side, action, cashOrder ? amount : quantity];
       let reference;
       if (orderId != null) {
         if (typeof orderId !== "string" || !orderId.length || orderId.length > 64) {
@@ -312,7 +342,7 @@
         reference = JSON.stringify([key, orderId]);
         const previous = this.executed.get(reference);
         if (previous) {
-          if (side !== previous[0] || action !== previous[1] || quantity !== previous[2]) {
+          if (signature.some((value, i) => value !== previous[i])) {
             error("Trade reference already used for a different order.", 409);
           }
           return;
@@ -320,21 +350,34 @@
       }
       if (this.phase !== "trading") error("Trading is closed.", 409);
       const all = side === "both" && action === "sellAll";
-      if (!all && (!SIDES.includes(side) || !["buy", "sell"].includes(action))) {
+      if (!all && (!SIDES.includes(side) || !["buy", "sell", "buyCash"].includes(action))) {
         error("Choose an outcome and a trade.");
       }
-      if (!Number.isSafeInteger(quantity) || quantity < 1) error("Choose a positive whole number of shares.");
+      if (cashOrder) {
+        if (!Number.isFinite(amount) || amount <= 0 || amount > player.cash + 0.000051)
+          error("Choose an amount within your available cash.");
+        amount = Math.min(amount, player.cash);
+        quantity = this.sharesForCash(side, amount);
+        if (minQuantity != null && (!Number.isFinite(minQuantity) || minQuantity < 0))
+          error("Invalid minimum purchase.");
+        if (minQuantity != null && quantity < minQuantity)
+          error("The price changed. Check the new total and try again.", 409);
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0 || quantity > Number.MAX_SAFE_INTEGER)
+        error("Choose a positive number of shares.");
+      if (action === "buy" && !Number.isSafeInteger(quantity)) error("Choose a whole number of shares.");
       if (all && quantity !== player.up + player.down) {
         error("Your holdings changed. Check your balance and try again.", 409);
       }
-      const delta = action === "buy" ? quantity : -quantity;
+      const buying = action === "buy" || cashOrder;
+      const delta = buying ? quantity : -quantity;
       if (!all && delta < 0 && player[side] < quantity) error("You can only sell shares you own.", 409);
-      const cost = all ? -this.cashOutValue(player) : this.quote(side, delta);
+      const cost = cashOrder ? amount : all ? -this.cashOutValue(player) : this.quote(side, delta);
       if (quoteLimit != null) {
         if (!Number.isFinite(quoteLimit) || quoteLimit < 0 || quoteLimit > quantity * PAYOUT)
           error("Invalid total quote.");
         const total = money(Math.abs(cost));
-        if (action === "buy" ? total > quoteLimit : total < quoteLimit)
+        if (buying ? total > quoteLimit : total < quoteLimit)
           error("The price changed. Check the new total and try again.", 409);
       }
       if (cost > player.cash + 1e-9) error("You need more practice cash for this trade.", 409);
@@ -349,8 +392,8 @@
       }
       const elapsed = this.elapsed(now);
       this.recordTicket(elapsed);
-      this.recordTrade(elapsed, "team", player.name, action, side, quantity, cost);
-      if (reference) this.executed.set(reference, [side, action, quantity]);
+      this.recordTrade(elapsed, "team", player.name, cashOrder ? "buy" : action, side, quantity, cost);
+      if (reference) this.executed.set(reference, signature);
     }
 
     hostAction(action, now) {

@@ -36,11 +36,10 @@
 .exchange .chartfoot { border-color: #303945; color: #adb6c1; }
 .exchange .size-row button { color: #b9c3d0; }
 .exchange .size-row button[aria-pressed="true"] { color: white; background: #354457; border-color: #95a6bb; }
-.exchange .order-modes { background: #0d1219; }
-.exchange .order-modes button { background: transparent; color: #aab5c4; }
-.exchange .order-modes [aria-pressed="true"] { background: #354457; color: #fff; }
-.exchange .order-submit { background: #a3cdff; border-color: #a3cdff; color: #0e2138; }
-.exchange .order-submit:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
+.exchange #buyUp { background: #65d8b5; border-color: #65d8b5; color: #08251d; }
+.exchange #buyDown { background: #f58a9a; border-color: #f58a9a; color: #3b1119; }
+.exchange .buy-choices button:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
+.exchange .holding-actions button { background: #242e3b; border-color: #3b4a5c; }
 .exchange .cashout-all { color: #a9ceff; background: transparent; }
 .exchange #notice { color: #a9ceff; }
 .exchange .status { background: #422f1d; color: #ffe2ab; }
@@ -50,7 +49,7 @@
 .market-board { margin: 0 0 17px; border: 1px solid #2d3744; border-radius: 14px; overflow: hidden; background: #151a21; }
 .board-head, .market-board .market-row {
   display: grid;
-  grid-template-columns: minmax(205px,1.4fr) minmax(150px,1fr) minmax(130px,.75fr) 108px;
+  grid-template-columns: minmax(205px,1.4fr) minmax(150px,1fr) minmax(130px,.75fr);
   align-items: center;
   gap: 16px;
   padding: 0 22px;
@@ -76,9 +75,6 @@
   text-align: left;
 }
 .market-board #pickDown { --outcome: #ff8191; --outcome-surface: #402831; }
-.market-board .market-row[aria-pressed="true"] { background: #1d252e; box-shadow: inset 3px 0 var(--outcome); border-color: #35404c; }
-.market-board .market-row:hover:enabled { background: #232d37; filter: none; }
-.market-board .market-row:focus-visible { outline: 2px solid #c0e0ff; outline-offset: -3px; }
 .outcome-name { display: flex; gap: 12px; align-items: center; }
 .outcome-name > i {
   display: grid; place-items: center; width: 37px; height: 37px;
@@ -92,18 +88,16 @@
 .odds-meter { display: block; overflow: hidden; width: min(8vw,90px); height: 5px; border-radius: 3px; background: #35404c; }
 .odds-meter i { display: block; height: 100%; background: var(--outcome); transition: width .22s ease; }
 .holder-count { color: #d5dde6; font-weight: 550; font-size: 15px; }
-.pick-cta { color: var(--outcome); background: var(--outcome-surface); border-radius: 7px; padding: 7px 10px; text-align: center; font-size: 13px; }
-.market-row[aria-pressed="true"] .pick-cta { color: #101920; background: var(--outcome); }
 #mobileTrades:empty { display: none; }
 #mobileTrades .trade-feed { margin: 8px 0 12px; padding: 8px 12px; border: 1px solid #303b48; border-radius: 9px; background: #18212b; }
 @media (max-width: 790px) {
-  .board-head, .market-board .market-row { grid-template-columns: minmax(130px,1.2fr) minmax(88px,.8fr) minmax(85px,.8fr) 82px; gap: 8px; padding: 0 13px; }
+  .board-head, .market-board .market-row { grid-template-columns: minmax(130px,1.2fr) minmax(88px,.8fr) minmax(85px,.8fr); gap: 8px; padding: 0 13px; }
   .exchange .layout:has(#tradePanel:not([hidden])) .ticket { order: -1; }
 }
 @media (max-width: 570px) {
   .board-head, .market-board .market-row { grid-template-columns: minmax(116px,1fr) 76px 76px; gap: 5px; padding: 0 10px; }
   .board-head { font-size: 11px; line-height: 1.2; }
-  .pick-cta, .board-head span:last-child, .odds-meter { display: none; }
+  .odds-meter { display: none; }
   .market-board .market-row { min-height: 58px; }
   .outcome-name { gap: 7px; }
   .outcome-name > i { width: 29px; height: 31px; font-size: 20px; }

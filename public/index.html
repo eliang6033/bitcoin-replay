@@ -44,22 +44,20 @@
           ><button id="invite">Class QR code</button><button id="hostAction" class="ink"></button>
         </div>
       </section>
-      <section class="market-board" id="prediction" aria-label="Choose a market outcome" hidden>
+      <section class="market-board" id="prediction" aria-label="Room predictions" hidden>
         <div class="board-head">
-          <span>Outcome</span><span>Market chance</span><span>Players holding</span><span></span>
+          <span>Outcome</span><span>Market chance</span><span>Players holding</span>
         </div>
-        <button type="button" class="market-row" id="pickUp" aria-pressed="true">
+        <div class="market-row" id="pickUp">
           <span class="outcome-name"><i aria-hidden="true">↗</i><span><b>Up</b><small>Above the starting price</small></span></span>
           <span class="odds-cell"><strong id="oddsUp">—</strong><i class="odds-meter" aria-hidden="true"><i id="barUp"></i></i></span>
           <span class="holder-count" id="holdersUp">—</span>
-          <span class="pick-cta" id="selectUp">Selected ✓</span>
-        </button>
-        <button type="button" class="market-row" id="pickDown" aria-pressed="false">
+        </div>
+        <div class="market-row" id="pickDown">
           <span class="outcome-name"><i aria-hidden="true">↘</i><span><b>Down</b><small>At or below the start</small></span></span>
           <span class="odds-cell"><strong id="oddsDown">—</strong><i class="odds-meter" aria-hidden="true"><i id="barDown"></i></i></span>
           <span class="holder-count" id="holdersDown">—</span>
-          <span class="pick-cta" id="selectDown">Pick Down</span>
-        </button>
+        </div>
       </section>
       <section id="result" class="panel result" hidden>
         <div>
@@ -136,40 +134,35 @@
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
           <div class="wallet" id="walletPanel" hidden>
-            <b id="wallet">—</b>
-            <div id="positionReturn" hidden><span>Est. gain / loss</span> <b id="gain">—</b></div>
+            <div class="total-value"><span id="worthLabel">Total if you cash out now</span><b id="wallet">—</b></div>
+            <div id="positionReturn"><span id="gainLabel">Your profit / loss</span><b id="gain">$0</b></div>
+            <div class="cash-detail"><span>Available to spend</span><b id="availableCash">—</b></div>
           </div>
           <div id="mobileTrades"></div>
           <div id="tradePanel" hidden>
-            <div class="order-heading">
-              <div class="order-modes" role="group" aria-label="Order type">
-                <button type="button" id="buy" aria-pressed="true">Buy</button>
-                <button type="button" id="sell" aria-pressed="false">Sell</button>
-              </div>
-              <span id="orderOutcome">Up shares</span>
-            </div>
             <fieldset class="sizing" id="sizing">
-              <legend id="sizePrompt">How much of your cash?</legend>
+              <legend>How much do you want to spend?</legend>
               <div class="size-row">
-                <button type="button" data-size="10" aria-pressed="false">10%</button>
-                <button type="button" data-size="25" aria-pressed="true">25%</button>
-                <button type="button" data-size="50" aria-pressed="false">50%</button>
-                <button type="button" data-size="100" aria-pressed="false">100%</button>
+                <button type="button" data-amount="10" aria-pressed="false">$10,000</button>
+                <button type="button" data-amount="25" aria-pressed="true">$25,000</button>
+                <button type="button" data-amount="50" aria-pressed="false">$50,000</button>
+                <button type="button" data-amount="all" aria-pressed="false">All cash</button>
               </div>
             </fieldset>
-            <div class="quantity-control" id="legacySize" hidden>
-              <label for="quantity">Number of shares</label>
-              <select id="quantity">
-                <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-                <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-              </select>
+            <div class="buy-choices">
+              <button type="button" id="buyUp" disabled><strong>Buy Up ↗</strong><span id="costUp"></span></button>
+              <button type="button" id="buyDown" disabled><strong>Buy Down ↘</strong><span id="costDown"></span></button>
             </div>
-            <button type="button" id="placeOrder" class="order-submit" disabled>
-              <strong id="orderActionLabel">Buy Up shares</strong>
-              <span id="orderAmount"></span>
-            </button>
-            <div class="position-line">
-              <span id="owned"></span>
+            <div id="positions" class="positions" hidden>
+              <h3>Your open bets</h3>
+              <div class="holding" id="holdingUp" hidden>
+                <div><b class="up-label">Up ↗</b><span>Sell now ≈ <strong id="valueUp"></strong></span></div>
+                <div class="holding-actions"><button type="button" data-exit="up" data-fraction="half">Sell half</button><button type="button" data-exit="up" data-fraction="all">Sell all Up</button></div>
+              </div>
+              <div class="holding" id="holdingDown" hidden>
+                <div><b class="down-label">Down ↘</b><span>Sell now ≈ <strong id="valueDown"></strong></span></div>
+                <div class="holding-actions"><button type="button" data-exit="down" data-fraction="half">Sell half</button><button type="button" data-exit="down" data-fraction="all">Sell all Down</button></div>
+              </div>
               <button type="button" class="cashout-all" id="cashOutAll" hidden>Cash out everything</button>
             </div>
             <p class="fine" id="orderNote" hidden></p>
@@ -178,10 +171,11 @@
           <details class="marketRules">
             <summary>How the money works</summary>
             <p>Market chance comes from the room’s prices. Player counts show how many classmates hold each side. If you hold both, you count once on each side. NPCs trade separately.</p>
-            <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Each winning share pays $10,000 in practice cash. A losing share pays $0. Sell shares you own before the finish to take the cash shown.</p>
-            <p id="sizeInfo">Choose Up or Down, select Buy or Sell, then choose a percentage and press the order button. The percentage applies to your available cash when buying and the shares you hold when selling. “Cash out everything” sells both sides in one step.</p>
-            <p>You can spend only the practice cash in your account. The most you can lose on a bet is what you paid.</p>
-            <p id="limitInfo" hidden>Prices move as the class trades. A bet can cost up to $150 more per share than the estimate, within your spending limit. Cashing out can return up to $150 less per share. A larger change asks you to check the new price.</p>
+            <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Dollar purchases can include part of a share. Each full winning share pays $10,000 in practice cash, and fractions pay proportionally. A losing share pays $0. You can sell a bet before the finish.</p>
+            <p>Pick a dollar amount, then press Buy Up or Buy Down. This places your bet immediately. Under Your open bets, Sell half and Sell all return money to your available cash.</p>
+            <p>Total value includes your available cash and what you would receive by selling all open bets now. Profit or loss is that total minus your starting $100,000. Prices can move before you sell. Buying transfers cash into a bet, so spending $25,000 does not by itself mean a $25,000 loss.</p>
+            <p>All cash spends your full available balance. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>
+            <p id="limitInfo" hidden>Dollar purchases spend the displayed amount. If the bet available for that amount drops by more than 3% before execution, you will be asked to try again. Sale estimates can move by up to 3% before execution.</p>
             <p id="traderCount"></p>
           </details>
         </aside>

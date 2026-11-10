@@ -444,36 +444,32 @@ footer {
 }
 .sizing { min-width: 0; border: 0; margin: 0; padding: 0; }
 .sizing legend { font-weight: 650; font-size: 14px; margin-bottom: 7px; padding: 0; }
-.order-heading, .order-submit { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.order-modes { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 10px; }
-.order-modes button { min-width: 68px; min-height: 39px; padding: 6px 12px; border: 0; border-radius: 7px; }
-#orderOutcome { color: var(--soft); font-size: 13px; }
-.order-submit { width: 100%; min-height: 48px; padding: 10px 14px; line-height: 1.2; text-align: left; }
-#orderAmount { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
-.wallet {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  align-items: flex-end;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  margin: 0 0 15px;
-  padding: 2px 0 13px;
-}
-#wallet {
-  font: 650 clamp(31px, 3vw, 43px)/1.1 "Avenir Next", Avenir, "Helvetica Neue", sans-serif;
-  letter-spacing: -.06em;
-  font-variant-numeric: tabular-nums;
-}
-#positionReturn { display: grid; text-align: right; }
-#positionReturn span { color: var(--soft); font-size: 11px; }
-#gain { font-variant-numeric: tabular-nums; font-size: 14px; }
+.wallet { display: grid; gap: 12px; border-bottom: 1px solid var(--line); margin-bottom: 14px; padding-bottom: 15px; }
+.total-value { display: grid; gap: 3px; }
+.total-value > span, #positionReturn > span, .cash-detail > span { color: var(--soft); font-size: 12px; }
+#wallet { font: 650 clamp(34px, 3.4vw, 46px)/1.12 "Avenir Next", Avenir, "Helvetica Neue", sans-serif; letter-spacing: -.055em; font-variant-numeric: tabular-nums; }
+#positionReturn, .cash-detail { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#gain { font-size: 26px; font-variant-numeric: tabular-nums; }
+#availableCash { font-size: 15px; font-variant-numeric: tabular-nums; }
+.buy-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.buy-choices button { display: grid; gap: 4px; min-height: 68px; padding: 10px; border-radius: 10px; }
+.buy-choices strong { font-size: 18px; }
+.buy-choices span { font-size: 13px; font-variant-numeric: tabular-nums; }
+.positions { margin-top: 19px; }
+.positions h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.holding { padding: 11px 0; border-top: 1px solid var(--line); }
+.holding > div:first-child { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.holding span { font-size: 12px; color: var(--soft); }
+.holding span strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.holding-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 9px; }
+.holding-actions button { min-height: 44px; padding: 7px 6px; font-size: 13px; }
+.up-label { color: var(--green); }
+.down-label { color: var(--red); }
 .sizing {margin: 12px 0;}
 .sizing legend {font-size: 13px; margin-bottom: 5px;}
 .size-row {display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;}
-.size-row button {padding: 6px 3px; min-height: 34px; color: #554e60; font-size: 13px;}
+.size-row button {padding: 6px 3px; min-height: 44px; color: #554e60; font-size: 13px;}
 .size-row button[aria-pressed="true"] {background: #eae5f3; color: #302345; border-color: #7d6c90;}
-.position-line {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-top: 7px;}
 .cashout-all {color: #59417d; text-decoration: underline; text-underline-offset: 2px; background: transparent; border: 0; padding: 5px 0; font-size: 12px;}
 #gain { color: var(--green); }
 #gain.loss { color: var(--red); }
