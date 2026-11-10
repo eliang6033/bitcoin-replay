@@ -10,7 +10,7 @@ def build():
     root = Path(__file__).resolve().parent
     output = root / "dist"
     copytree(root / "public", output, dirs_exist_ok=True)
-    scripts = ["vendor/peerjs.min.js", "room-engine.js", "classroom.js"]
+    scripts = ["shared-room.js"]
     for asset in scripts:
         if not (output / asset).is_file():
             raise FileNotFoundError(asset)

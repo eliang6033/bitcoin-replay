@@ -242,7 +242,7 @@ function setOrders() {
     const sell = quotes?.fractions?.[orderPercent].sell;
     const canBuy = buy?.amount > 0;
     const canSell = sell?.quantity > 0;
-    label("cost" + name, canBuy ? "Pay " + practice(buy.amount) : s.me.cash > 0 ? "Waiting for host" : "No cash to spend");
+    label("cost" + name, canBuy ? "Pay " + practice(buy.amount) : s.me.cash > 0 ? "Waiting to start" : "No cash to spend");
     label("return" + name, canSell ? "Get ≈ " + practice(sell.total) : "No " + name + " held");
     $("buy" + name).disabled = busy || !trading || !canBuy;
     $("sell" + name).disabled = busy || !trading || !canSell;
@@ -268,8 +268,8 @@ function setOrders() {
     label("cashOutAll", "Sell both bets ≈ " + practice(all.total));
     $("cashOutAll").disabled = busy || !trading;
   }
-  const note = s.phase === "lobby" ? "Buying opens when the host starts the clock." :
-    trading && !supportsPercentages ? "Ask the host to refresh their page to enable percentage orders." : "";
+  const note = s.phase === "lobby" ? "Buying opens when a player starts the replay." :
+    trading && !supportsPercentages ? "Refresh this page to load the current trading controls." : "";
   label("orderNote", note);
   show("orderNote", Boolean(note));
 }
@@ -415,9 +415,10 @@ function paint(s) {
   drawTradeFeed(s);
   label("traderCount", roomCount(s));
   show("lobbyArt", s.phase === "lobby");
-  show("hostbar", s.host);
+  show("hostbar", s.sharedRoom || s.host);
+  label("hostLabel", s.sharedRoom ? "Classroom" : "Host controls");
   show("marketUpdate", Boolean(s.host && s.currentMarketRules === false));
-  const showLobbyInvite = s.host && s.phase === "lobby" && scannable(s.joinUrl);
+  const showLobbyInvite = (s.sharedRoom || s.host) && s.phase === "lobby" && scannable(s.joinUrl);
   $("hostbar").classList.toggle("scan-lobby", showLobbyInvite);
   show("lobbyInvite", showLobbyInvite);
   show("scanInstructions", showLobbyInvite);
@@ -428,18 +429,19 @@ function paint(s) {
     $("lobbyInvite").dataset.url = s.joinUrl;
   }
   label("invite", showLobbyInvite ? "Share invite link" : "Class QR code");
-  show("restart", s.host && s.phase !== "lobby" && s.phase !== "discussion");
+  show("restart", s.sharedRoom ? s.canReset && s.phase !== "discussion" : s.host && s.phase !== "lobby" && s.phase !== "discussion");
   const command = hostActions[s.phase];
   show("hostAction", !!command);
   if (command) {
     label("hostAction", command[0]);
     $("hostAction").disabled =
-      busy || (s.phase === "network" && s.network.elapsed < s.network.duration);
+      busy || (s.sharedRoom && !(command[1] === "reset" ? s.canReset : s.canControl)) || (s.phase === "network" && s.network.elapsed < s.network.duration);
+    $("hostAction").title = s.sharedRoom && !s.canControl && command[1] !== "reset" ? "Join the market to use this control" : "";
   }
   label(
     "hostHint",
     s.phase === "network" ? "Same window · 60-second replay" :
-      roomCount(s),
+      roomCount(s) + (s.sharedRoom && s.phase === "lobby" ? (s.me ? " · Any player can start when everyone is ready" : " · Join to play, or watch the leaderboard") : ""),
   );
   show("joinForm", !s.me && !done);
   show("walletPanel", !!s.me);
@@ -523,7 +525,7 @@ function paint(s) {
     if (s.phase === "trading") noticeHome.append($("notice"));
     else noticeHome.insertBefore($("notice"), $("myTrades"));
   }
-  show("downloadLog", Boolean(s.host));
+  show("downloadLog", Boolean(s.host || s.sharedRoom && s.me));
 }
 async function call(path, body) {
   const id = ++sequence;
@@ -562,7 +564,7 @@ async function submit(path, body) {
     const buying = ["buy", "buyCash"].includes(body.action);
     pendingOrder = { button: body.side === "both" ? "cashOutAll" : (buying ? "buy" : "sell") + sideName(body.side) };
     orderNotice({ kind: "pending", headline: buying ? "Buying " + sideName(body.side) + "…" : "Selling " + (body.side === "both" ? "both bets" : sideName(body.side)) + "…",
-      details: "Waiting for the host to confirm. Please do not click again." });
+      details: "Confirming your order. Please do not click again." });
   }
   setOrders();
   try {
@@ -642,7 +644,7 @@ new ResizeObserver(() => {
   if (state) draw(state, ["network", "discussion"].includes(state.phase));
 }).observe($("plot"));
 $("restart").onclick = () => {
-  if (confirm("End this practice round and clear player balances?"))
+  if (confirm(state.sharedRoom ? "Open a new round for everyone and clear the previous balances?" : "End this practice round and clear player balances?"))
     submit("host", { action: "reset" });
 };
 $("hostAction").onclick = () => {
@@ -713,7 +715,7 @@ $("invite").onclick = () =>
     "Join this room",
     [
       online
-        ? "Everyone scans the same code to join. Keep this host tab open during the game."
+        ? "Everyone uses this same link. Join with your name or watch the live leaderboard. The shared server keeps the room running when you close your tab."
         : state.joinUrl.includes("127.0.0.1")
         ? "This preview is open on this computer. To invite phones, restart the classroom server in LAN mode as described in the project guide."
         : "Students on the same network can open this address on a phone or laptop and enter their name or nickname.",
@@ -723,45 +725,34 @@ $("invite").onclick = () =>
 $("close").onclick = () => $("dialog").close();
 
 function startOnline() {
-  const params = new URLSearchParams(location.search);
-  const invited = params.get("room");
-  const hostId = window.BitcoinClassroom?.currentHostId();
-  const isReturningHost = hostId && (!params.has("host") || params.get("host") === hostId);
   show("joinForm", false);
   show("ranks", false);
   show("launcher", true);
   label("price", "Market lobby");
-  label("priceDelta", "Waiting to start");
-  label("ticketHeading", invited ? "Join this room" : "Play with friends");
-  label("launchText", invited
-    ? "Connecting to the host. Enter your name or nickname when you arrive."
-    : "Create one room and invite everyone with the same link. Playing alone? You can join your own round.");
+  label("priceDelta", "Everyone shares this room");
+  label("ticketHeading", "Join the classroom");
+  label("launchText", "Connecting to the shared room. Join the game or watch the live leaderboard.");
   const button = $("launchButton");
-  const buttonName = invited ? "Connect to room" : isReturningHost ? "Reopen your room" : "Create a room";
-  label("launchButton", buttonName);
   const connect = async () => {
     if (button.disabled) return;
     button.disabled = true;
-    label("launchButton", invited ? "Joining room…" : "Opening room…");
+    label("launchButton", "Connecting…");
     show("status", false);
-    let connected;
     try {
-      if (!window.BitcoinClassroom) throw Error("The room software could not load. Reload this page to try again.");
-      connected = invited ? await BitcoinClassroom.join(invited) : await BitcoinClassroom.create();
-      session = connected;
+      if (!window.BitcoinSharedRoom) throw Error("The room software could not load. Reload this page to try again.");
+      session = BitcoinSharedRoom.connect();
       await call("state");
       show("launcher", false);
       refresh();
     } catch (error) {
-      if (connected) BitcoinClassroom.dispose();
-      label("status", error.message || "Could not connect. Check the host tab and try again.");
+      label("status", error.message || "Could not connect to the shared room. Try again.");
       show("status", true);
-      label("launchButton", buttonName);
+      label("launchButton", "Reconnect to classroom");
       button.disabled = false;
     }
   };
   button.onclick = connect;
-  if (invited || (params.has("host") && isReturningHost)) connect();
+  connect();
 }
 if (online) startOnline();
 else refresh();
