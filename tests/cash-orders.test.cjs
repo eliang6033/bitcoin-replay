@@ -61,6 +61,26 @@ test("invalid or stale dollar orders leave balances and activity unchanged", () 
   assert.ok(Math.abs(closed.me.cash - 100) < 0.0001);
 });
 
+test("percentage orders spend a small remaining balance and sell only the chosen side", () => {
+  const sim = setup();
+  let s = sim.call("trade", {side: "up", action: "buyCash", amount: 97});
+  assert.equal(s.me.cash, 3);
+  for (const percent of [10, 25, 50, 100]) {
+    assert.equal(s.bulk.down.fractions[percent].buy.amount, 3 * percent / 100);
+    assert.ok(Math.abs(s.bulk.up.fractions[percent].sell.quantity - s.me.up * percent / 100) < 1e-12);
+  }
+  const originalUp = s.me.up;
+  s = sim.call("trade", {side: "down", action: "buyCash", amount: s.bulk.down.fractions[100].buy.amount});
+  assert.equal(s.me.cash, 0);
+  const originalDown = s.me.down;
+  s = sim.call("trade", {side: "up", action: "sell", quantity: s.bulk.up.fractions[25].sell.quantity});
+  assert.ok(Math.abs(s.me.up - originalUp * 0.75) < 1e-12);
+  assert.equal(s.me.down, originalDown);
+  s = sim.call("trade", {side: "up", action: "sell", quantity: s.bulk.up.fractions[100].sell.quantity});
+  assert.equal(s.me.up, 0);
+  assert.equal(s.me.down, originalDown);
+});
+
 test("browser and local server agree on dollar buys, NPC moves, fractional exits and settlement", () => {
   const sim = setup();
   const actions = [
@@ -74,7 +94,7 @@ test("browser and local server agree on dollar buys, NPC moves, fractional exits
   for (const action of actions) {
     let s = sim.at(action.time);
     s = action.portion
-      ? sim.call("trade", {side: action.side, action: "sell", quantity: s.bulk[action.side].exit[action.portion].quantity})
+      ? sim.call("trade", {side: action.side, action: "sell", quantity: s.bulk[action.side].fractions[action.portion === "all" ? 100 : 50].sell.quantity})
       : sim.call("trade", {side: action.side, action: "buyCash", amount: action.amount === "all" ? s.me.cash : action.amount});
     actual.push({cash: s.me.cash, up: s.me.up, down: s.me.down, odds: s.upPrice});
   }
@@ -92,7 +112,7 @@ for a in json.loads(input()):
     now[0] = a["time"]
     s = r.state(k, False, "/")
     if "portion" in a:
-        r.trade(k, a["side"], "sell", s["bulk"][a["side"]]["exit"][a["portion"]]["quantity"])
+        r.trade(k, a["side"], "sell", s["bulk"][a["side"]]["fractions"][100 if a["portion"] == "all" else 50]["sell"]["quantity"])
     else:
         r.trade(k, a["side"], "buyCash", amount=s["me"]["cash"] if a["amount"] == "all" else a["amount"])
     s = r.state(k, False, "/")

@@ -38,8 +38,10 @@
 .exchange .size-row button[aria-pressed="true"] { color: white; background: #354457; border-color: #95a6bb; }
 .exchange #buyUp { background: #65d8b5; border-color: #65d8b5; color: #08251d; }
 .exchange #buyDown { background: #f58a9a; border-color: #f58a9a; color: #3b1119; }
-.exchange .buy-choices button:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
-.exchange .holding-actions button { background: #242e3b; border-color: #3b4a5c; }
+.exchange .trade-grid button:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
+.exchange #sellUp { background: #1e3936; border-color: #65d8b5; color: #81e6c6; }
+.exchange #sellDown { background: #402831; border-color: #f58a9a; color: #ffa2b0; }
+.exchange #sellUp:disabled, .exchange #sellDown:disabled { background: #222831; border-color: #38414e; color: #aeb8c6; opacity: 1; }
 .exchange .cashout-all { color: #a9ceff; background: transparent; }
 .exchange #notice { color: #a9ceff; }
 .exchange .status { background: #422f1d; color: #ffe2ab; }

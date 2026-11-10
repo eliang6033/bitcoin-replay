@@ -256,18 +256,24 @@ class Room:
     def bulk_quotes(self, player):
         result = {"cashOut": {"quantity": player["up"] + player["down"], "total": money(self.cash_out_value(player))}}
         for side in ("up", "down"):
-            buy, sell = {}, {}
+            buy, sell, fractions = {}, {}, {}
             for percent in PERCENTAGES:
                 n_buy = self.affordable(side, player["cash"] * percent / 100)
                 n_sell = min(player[side], max(1, player[side] * percent // 100)) if player[side] else 0
                 buy[percent] = {"quantity": n_buy, "total": money(self.quote(side, n_buy))}
                 sell[percent] = {"quantity": n_sell, "total": money(abs(self.quote(side, -n_sell)))}
+                budget = player["cash"] if percent == 100 else player["cash"] * percent / 100
+                quantity = player[side] if percent == 100 else player[side] * percent / 100
+                fractions[percent] = {
+                    "buy": {"amount": money(budget), "quantity": self.shares_for_cash(side, budget)},
+                    "sell": {"quantity": quantity, "total": money(-self.quote(side, -quantity))},
+                }
             spend = {}
             for choice in ("10", "25", "50", "all"):
                 budget = player["cash"] if choice == "all" else min(float(choice), player["cash"])
                 spend[choice] = {"amount": money(budget), "quantity": self.shares_for_cash(side, budget)}
             half = player[side] / 2
-            result[side] = {"buy": buy, "sell": sell, "spend": spend, "exit": {
+            result[side] = {"buy": buy, "sell": sell, "spend": spend, "fractions": fractions, "exit": {
                 "half": {"quantity": half, "total": money(-self.quote(side, -half))},
                 "all": {"quantity": player[side], "total": money(-self.quote(side, -player[side]))},
             }}

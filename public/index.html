@@ -134,36 +134,32 @@
             <button class="wide primary">Join the market <span>→</span></button>
           </form>
           <div class="wallet" id="walletPanel" hidden>
-            <div class="total-value"><span id="worthLabel">Total if you cash out now</span><b id="wallet">—</b></div>
+            <div class="total-value"><span id="worthLabel">Total value · cash + bets</span><b id="wallet">—</b></div>
             <div id="positionReturn"><span id="gainLabel">Your profit / loss</span><b id="gain">$0</b></div>
-            <div class="cash-detail" id="cashDetail"><span>Available to spend</span><b id="availableCash">—</b></div>
+            <div class="cash-detail" id="cashDetail"><span>Cash you can spend</span><b id="availableCash">—</b></div>
           </div>
           <div id="mobileTrades"></div>
           <div id="tradePanel" hidden>
             <fieldset class="sizing" id="sizing">
-              <legend>How much do you want to spend?</legend>
+              <legend>How much to buy or sell?</legend>
               <div class="size-row">
-                <button type="button" data-amount="10" aria-pressed="false">$10,000</button>
-                <button type="button" data-amount="25" aria-pressed="true">$25,000</button>
-                <button type="button" data-amount="50" aria-pressed="false">$50,000</button>
-                <button type="button" data-amount="all" aria-pressed="false">All cash</button>
+                <button type="button" data-percent="10" aria-pressed="false">10%</button>
+                <button type="button" data-percent="25" aria-pressed="true">25%</button>
+                <button type="button" data-percent="50" aria-pressed="false">50%</button>
+                <button type="button" data-percent="100" aria-pressed="false">100%</button>
               </div>
             </fieldset>
-            <div class="buy-choices">
+            <p class="sizing-help">Buy uses your cash. Sell uses that bet’s holdings.</p>
+            <div class="trade-grid">
               <button type="button" id="buyUp" disabled><strong>Buy Up ↗</strong><span id="costUp"></span></button>
               <button type="button" id="buyDown" disabled><strong>Buy Down ↘</strong><span id="costDown"></span></button>
+              <button type="button" id="sellUp" class="sell-action" disabled><strong>Sell Up</strong><span id="returnUp">No Up held</span></button>
+              <button type="button" id="sellDown" class="sell-action" disabled><strong>Sell Down</strong><span id="returnDown">No Down held</span></button>
             </div>
             <div id="positions" class="positions" hidden>
-              <h3>Your open bets</h3>
-              <div class="holding" id="holdingUp" hidden>
-                <div><b class="up-label">Up ↗</b><span>Sell now ≈ <strong id="valueUp"></strong></span></div>
-                <div class="holding-actions"><button type="button" data-exit="up" data-fraction="half">Sell half</button><button type="button" data-exit="up" data-fraction="all">Sell all Up</button></div>
-              </div>
-              <div class="holding" id="holdingDown" hidden>
-                <div><b class="down-label">Down ↘</b><span>Sell now ≈ <strong id="valueDown"></strong></span></div>
-                <div class="holding-actions"><button type="button" data-exit="down" data-fraction="half">Sell half</button><button type="button" data-exit="down" data-fraction="all">Sell all Down</button></div>
-              </div>
-              <button type="button" class="cashout-all" id="cashOutAll" hidden>Cash out everything</button>
+              <div class="holding" id="holdingUp" hidden><b class="up-label">Up held</b><span>Worth ≈ <strong id="valueUp"></strong></span></div>
+              <div class="holding" id="holdingDown" hidden><b class="down-label">Down held</b><span>Worth ≈ <strong id="valueDown"></strong></span></div>
+              <button type="button" class="cashout-all" id="cashOutAll" hidden>Sell both bets</button>
             </div>
             <p class="fine" id="orderNote" hidden></p>
           </div>
@@ -172,9 +168,9 @@
             <summary>How the money works</summary>
             <p>Market chance comes from the room’s prices. Player counts show how many classmates hold each side. If you hold both, you count once on each side. NPCs trade separately.</p>
             <p>Up wins if Bitcoin ends above its starting price. Down wins if it ends at or below the start. Dollar purchases can include part of a share. Each full winning share pays $10,000 in practice cash, and fractions pay proportionally. A losing share pays $0. You can sell a bet before the finish.</p>
-            <p>Pick a dollar amount, then press Buy Up or Buy Down. This places your bet immediately. Under Your open bets, Sell half and Sell all return money to your available cash.</p>
+            <p>Choose a percentage, then press Buy Up, Buy Down, Sell Up, or Sell Down. Buy spends that percentage of your available cash. Sell closes that percentage of your holdings on that side. You can hold both sides at the same time.</p>
             <p>Total value includes your available cash and what you would receive by selling all open bets now. Profit or loss is that total minus your starting $100,000. Prices can move before you sell. Buying transfers cash into a bet, so spending $25,000 does not by itself mean a $25,000 loss.</p>
-            <p>All cash spends your full available balance. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>
+            <p>Buying at 100% spends your full available cash. Selling at 100% closes the entire chosen bet. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>
             <p id="limitInfo" hidden>Dollar purchases spend the displayed amount. If the bet available for that amount drops by more than 3% before execution, you will be asked to try again. Sale estimates can move by up to 3% before execution.</p>
             <p id="traderCount"></p>
           </details>

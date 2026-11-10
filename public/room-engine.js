@@ -290,12 +290,18 @@
     bulkQuotes(player) {
       const bulk = { cashOut: { quantity: player.up + player.down, total: money(this.cashOutValue(player)) } };
       for (const side of SIDES) {
-        const buy = {}, sell = {};
+        const buy = {}, sell = {}, fractions = {};
         for (const percent of PERCENTAGES) {
           const nBuy = this.affordable(side, player.cash * percent / 100);
           const nSell = Math.min(player[side], player[side] ? Math.max(1, Math.floor(player[side] * percent / 100)) : 0);
           buy[percent] = { quantity: nBuy, total: money(this.quote(side, nBuy)) };
           sell[percent] = { quantity: nSell, total: money(Math.abs(this.quote(side, -nSell))) };
+          const budget = percent === 100 ? player.cash : player.cash * percent / 100;
+          const quantity = percent === 100 ? player[side] : player[side] * percent / 100;
+          fractions[percent] = {
+            buy: { amount: money(budget), quantity: this.sharesForCash(side, budget) },
+            sell: { quantity, total: money(-this.quote(side, -quantity)) },
+          };
         }
         const spend = {};
         for (const choice of ["10", "25", "50", "all"]) {
@@ -303,7 +309,7 @@
           spend[choice] = { amount: money(budget), quantity: this.sharesForCash(side, budget) };
         }
         const half = player[side] / 2;
-        bulk[side] = { buy, sell, spend, exit: {
+        bulk[side] = { buy, sell, spend, fractions, exit: {
           half: { quantity: half, total: money(-this.quote(side, -half)) },
           all: { quantity: player[side], total: money(-this.quote(side, -player[side])) },
         } };
