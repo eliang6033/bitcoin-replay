@@ -170,7 +170,7 @@
                 <button type="button" data-percent="100" aria-pressed="false">100%</button>
               </div>
             </fieldset>
-            <p class="sizing-help">Buy uses your cash. Sell uses that bet’s holdings.</p>
+            <p class="sizing-help">Buy uses your cash. Sell uses that bet’s holdings at the latest price. Sale amounts are estimates.</p>
             <div class="trade-grid">
               <button type="button" id="buyUp" disabled><strong id="buyUpLabel">Buy Up</strong><span id="costUp"></span></button>
               <button type="button" id="buyDown" disabled><strong id="buyDownLabel">Buy Down</strong><span id="costDown"></span></button>
@@ -196,7 +196,7 @@
             <p>Choose a percentage, then press Buy Up, Buy Down, Sell Up, or Sell Down. Buy spends that percentage of your available cash. Sell closes that percentage of your holdings on that side. You can hold both sides at the same time.</p>
             <p>Total value includes your available cash and what you would receive by selling all open bets now. Profit or loss is that total minus your starting $1,000. Prices can move before you sell. Buying transfers cash into a bet, so spending $250 does not by itself mean a $250 loss.</p>
             <p>Buying at 100% spends your full available cash. Selling at 100% closes the entire chosen bet. You can spend only money you have. Combined cash-out accounts for how selling both sides changes the price, so it can differ from adding the separate estimates.</p>
-            <p id="limitInfo" hidden>Dollar purchases spend the displayed amount. If the bet available for that amount drops by more than 3% before execution, you will be asked to try again. Sale estimates can move by up to 3% before execution.</p>
+            <p id="limitInfo" hidden>Orders execute at the latest room price. Buys spend the displayed amount; the number of shares can change. Sale estimates include the price impact of the whole order, but other trades can change the final amount. Your receipt shows what you actually paid or received.</p>
             <p>New rounds have 120 NPCs, each starting with $5,000. Their buys and sales are split into orders of at most $1,000. A $1,000 purchase moves the chance by less than 2 percentage points, before other trades. NPCs can disagree even during a crash. Their trades and market chances are simulated; the Bitcoin price history is real. The leaderboard includes classmates only.</p>
             <p id="traderCount"></p>
           </details>

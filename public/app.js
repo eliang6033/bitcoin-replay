@@ -256,7 +256,7 @@ function setOrders() {
         (recentButton === id ? "✓ " : "") + (action === "buy" ? "Buy " : "Sell ") + name);
     }
     $("buy" + name).title = "Use " + orderPercent + "% of your cash to buy " + name;
-    $("sell" + name).title = "Sell " + orderPercent + "% of your " + name + " holdings";
+    $("sell" + name).title = "Sell " + orderPercent + "% of your " + name + " holdings at the latest room price";
     const held = s.me[side] > 0;
     show("holding" + name, held);
     if (held) label("value" + name, practice(quotes?.exit?.all.total ?? 0));
@@ -630,18 +630,18 @@ for (const side of ["up", "down"]) {
   $("buy" + sideName(side)).onclick = () => {
     if (busy || $("buy" + sideName(side)).disabled) return;
     const quote = state.bulk[side].fractions[orderPercent].buy;
-    submit("trade", { side, action: "buyCash", amount: quote.amount, minQuantity: quote.quantity * 0.97 });
+    submit("trade", { side, action: "buyCash", amount: quote.amount });
   };
   $("sell" + sideName(side)).onclick = () => {
     if (busy || $("sell" + sideName(side)).disabled) return;
-    const {quantity, total} = state.bulk[side].fractions[orderPercent].sell;
-    submit("trade", { side, action: "sell", quantity, quoteLimit: Math.max(0, total * 0.97) });
+    const {quantity} = state.bulk[side].fractions[orderPercent].sell;
+    submit("trade", { side, action: "sell", quantity });
   };
 }
 $("cashOutAll").onclick = () => {
   if (busy || $("cashOutAll").disabled) return;
-  const {quantity, total} = state.bulk.cashOut;
-  submit("trade", {side: "both", action: "sellAll", quantity, quoteLimit: Math.max(0, total * 0.97)});
+  const {quantity} = state.bulk.cashOut;
+  submit("trade", {side: "both", action: "sellAll", quantity});
 };
 new ResizeObserver(() => {
   if (state) draw(state, ["network", "discussion"].includes(state.phase));

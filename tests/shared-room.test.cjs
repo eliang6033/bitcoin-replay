@@ -7,6 +7,26 @@ globalThis.crypto ||= webcrypto;
 require('../public/room-engine.js');
 const history = require('../public/history.json');
 const A = 'a'.repeat(64), B = 'b'.repeat(64), C = 'c'.repeat(64);
+
+// Exercise the real button handlers against the shared service, including a
+// second player's order arriving after the displayed preview was calculated.
+function clickTradeButton(state, button, percent = 100) {
+  const source = readFileSync(require.resolve('../public/app.js'), 'utf8');
+  const start = source.lastIndexOf('for (const side of ["up", "down"]) {');
+  const end = source.indexOf('new ResizeObserver', start);
+  assert(start >= 0 && end > start);
+  const buttons = Object.fromEntries(['buyUp','buyDown','sellUp','sellDown','cashOutAll'].map(id => [id,{disabled:false}]));
+  let order;
+  vm.runInNewContext(source.slice(start,end), {
+    $:id => buttons[id], state, busy:false, orderPercent:percent,
+    sideName:side => side === 'up' ? 'Up' : 'Down',
+    submit:(path,body) => {assert.equal(path,'trade'); order=body;},
+  });
+  buttons[button].onclick();
+  assert(order);
+  return {...order};
+}
+
 async function fixture(t) {
   const {openDatabase} = await import('../shared-server/sqlite.mjs');
   const {createService} = await import('../shared-server/service.mjs');
@@ -74,6 +94,50 @@ test('duplicate trade is filled once, stale quotes fail, and one player cannot s
   assert.equal((await f.send('trade',{...order,orderId:'bad-price',minQuantity:99999},A)).status,409);
   assert.equal((await f.send('trade',{...order,orderId:'stranger'},C)).status,403);
   assert.equal((await f.send('state',null,A)).data.me.cash,75);
+});
+
+for (const [side,button,percent] of [['up','sellUp',25],['down','sellDown',100],['both','cashOutAll',100]]) {
+  test(`${button} executes once at current proceeds after the preview drops more than 3%`, async t => {
+    const f=await fixture(t), roundId=f.first.roundId;
+    await f.join('Seller',A); await f.join('Other buyer',B); await f.join('Third buyer',C);
+    await f.send('control',{action:'start',roundId},A);
+    const held=side === 'both' ? 'up' : side, opposite=held === 'up' ? 'down' : 'up';
+    await f.send('trade',{action:'buyCash',side:held,amount:25,orderId:'open',roundId},A);
+    if(side === 'both') await f.send('trade',{action:'buyCash',side:opposite,amount:1,orderId:'hedge',roundId},A);
+    const preview=(await f.send('state',null,A)).data;
+    const order={...clickTradeButton(preview,button,percent),orderId:'market-sale',roundId};
+    assert.equal(Object.hasOwn(order,'quoteLimit'),false);
+    const oldTotal=side === 'both' ? preview.bulk.cashOut.total : preview.bulk[held].fractions[percent].sell.total;
+    for (const token of [B,C]) assert.equal((await f.send('trade',{action:'buyCash',side:opposite,amount:100,orderId:'move-price',roundId},token)).status,200);
+    const current=(await f.send('state',null,A)).data;
+    const currentTotal=side === 'both' ? current.bulk.cashOut.total : current.bulk[held].fractions[percent].sell.total;
+    assert(currentTotal < oldTotal * .97, 'the previous price guard would reject this sale');
+    const result=await f.send('trade',order,A);
+    assert.equal(result.status,200);
+    assert.equal(result.data.tradeReceipt.total,currentTotal);
+    assert(Math.abs(result.data.me.cash-current.me.cash-currentTotal)<.00011);
+    if(side === 'both') {assert.equal(result.data.me.up,0); assert.equal(result.data.me.down,0);}
+    else assert(Math.abs(result.data.me[held]-preview.me[held]*(1-percent/100))<1e-9);
+    const retry=await f.send('trade',order,A);
+    assert.equal(retry.status,200);
+    assert.deepEqual(retry.data.me,result.data.me);
+    assert.equal(retry.data.myTrades.filter(fill=>fill.orderId===order.orderId).length,1);
+  });
+}
+
+test('buy buttons keep the chosen budget when price movement reduces the shares received', async t => {
+  const f=await fixture(t), roundId=f.first.roundId;
+  await f.join('Buyer',A); await f.join('Other buyer',B); await f.join('Third buyer',C);
+  await f.send('control',{action:'start',roundId},A);
+  const preview=(await f.send('state',null,A)).data;
+  const order={...clickTradeButton(preview,'buyUp',25),orderId:'market-buy',roundId};
+  assert.equal(Object.hasOwn(order,'minQuantity'),false);
+  for (const token of [B,C]) assert.equal((await f.send('trade',{action:'buyCash',side:'up',amount:100,orderId:'move-price',roundId},token)).status,200);
+  const result=await f.send('trade',order,A);
+  assert.equal(result.status,200);
+  assert(result.data.tradeReceipt.quantity < preview.bulk.up.fractions[25].buy.quantity*.97);
+  assert.equal(result.data.tradeReceipt.total,25);
+  assert.equal(result.data.me.cash,75);
 });
 
 test('the wall clock and NPCs continue without browsers; no active reset; everyone shares settlement', async t => {
