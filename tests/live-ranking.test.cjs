@@ -3,15 +3,16 @@ const assert = require('node:assert/strict');
 const data = require('../public/history.json');
 globalThis.crypto ??= require('node:crypto').webcrypto;
 require('../public/room-engine.js');
+require('../public/practice-money.js');
 require('../public/live-ranking.js');
 
-test('live and final rankings use whole-dollar profit, keep ties, losses and inactive players', () => {
+test('live and final rankings use cent-rounded profit, keep ties, losses and inactive players', () => {
   const ranked = BitcoinLiveRanking.rank([
     {name:'Loss', points:90}, {name:'Idle', points:100},
     {name:'Taylor', points:120.0001}, {name:'Alex', points:120.0002},
   ]);
   assert.deepEqual(ranked.map(p => [p.name,p.profit,p.place]), [
-    ['Alex',20000,1],['Taylor',20000,1],['Idle',0,3],['Loss',-10000,4],
+    ['Alex',200,1],['Taylor',200,1],['Idle',0,3],['Loss',-100,4],
   ]);
 });
 

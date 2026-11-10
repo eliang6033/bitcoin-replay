@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   function rank(players) {
-    const sorted = players.map(p => ({name: p.name, profit: Math.round(p.points * 1000) - 100000}))
+    const sorted = players.map(p => ({name: p.name, profit: BitcoinPracticeMoney.profit(p.points)}))
       .sort((a, b) => b.profit - a.profit || a.name.localeCompare(b.name));
     let previous, place;
     return sorted.map((p, i) => {
@@ -12,7 +12,6 @@
     });
   }
   const boards = new WeakMap();
-  const currency = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0});
   function render(list, players, {roundId, elapsed = 0, me, settled = false}) {
     let board = boards.get(list);
     if (!board || board.roundId !== roundId) {
@@ -58,7 +57,7 @@
       } else if (elapsed - entry.movedAt > 2 || settled) {
         movement.textContent = ''; movement.removeAttribute('aria-label');
       }
-      profit.textContent = (p.profit > 0 ? '+' : p.profit < 0 ? '−' : '') + currency.format(Math.abs(p.profit));
+      profit.textContent = (p.profit > 0 ? '+' : p.profit < 0 ? '−' : '') + BitcoinPracticeMoney.formatDollars(Math.abs(p.profit));
       profit.dataset.sign = p.profit > 0 ? 'gain' : p.profit < 0 ? 'loss' : 'even';
       if (prior && prior.profit !== p.profit && motion) {
         profit.getAnimations().forEach(animation => animation.cancel());

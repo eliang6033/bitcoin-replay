@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const data = require('../public/history.json');
 globalThis.crypto ??= require('node:crypto').webcrypto;
 require('../public/room-engine.js');
+require('../public/practice-money.js');
 require('../public/trade-status.js');
 
 function setup() {
@@ -73,12 +74,37 @@ test('upgrading an old round preserves balances and explicitly marks recovered h
 
 test('feedback distinguishes receipt proceeds, rejected orders and unknown acknowledgements', () => {
   const receipt = BitcoinTradeStatus.receipt({action:'sell',side:'down',quantity:1,total:9.5,cashAfter:95});
-  assert.match(receipt.headline, /Received \$9,500/);
+  assert.match(receipt.headline, /Received \$95/);
   assert.match(receipt.details, /not the same as profit/);
   const rejected = BitcoinTradeStatus.failure({message:'The price changed. Check the new total and try again.',rejected:true});
   assert.match(rejected.headline, /Not filled/);
   assert.match(rejected.details, /did not change your cash/);
   assert.equal(BitcoinTradeStatus.failure({message:'timeout'}).kind, 'uncertain');
+});
+
+test('the $1,000 denomination reconciles purchases, sales, settlement and NPC funding', () => {
+  const sim = setup(), cash = BitcoinPracticeMoney;
+  const opening = sim.call('state');
+  assert.equal(cash.format(opening.me.cash), '$1,000');
+  // The first twelve agents have already funded the opening book.
+  assert.equal(cash.format(sim.room.market.traders.at(-1).cash), '$5,000');
+  assert.equal(cash.format(sim.room.market.npcTradeLimit), '$1,000');
+  assert.equal(cash.format(10), '$100', 'full winning-share payout');
+  const quote = opening.bulk.up.fractions[25].buy;
+  const bought = sim.call('trade', {action:'buyCash', side:'up', amount:quote.amount});
+  const receipt = BitcoinTradeStatus.receipt(bought.tradeReceipt);
+  assert.match(receipt.headline, /Paid \$250$/);
+  assert.match(receipt.details, /Cash available: \$750\./);
+  assert.equal(cash.profit(bought.me.points), 0, 'spending is not a loss');
+  const sold = sim.call('trade', {action:'sell', side:'up', quantity:bought.me.up});
+  assert.equal(cash.format(sold.me.cash), '$1,000');
+  sim.call('trade', {action:'buyCash', side:'up', amount:25});
+  const final = sim.at(300);
+  assert.equal(final.reveal.winner, 'down');
+  assert.equal(cash.format(final.me.points), '$750');
+  assert.equal(cash.profit(final.me.points), -250);
+  assert.equal(cash.formatDollars(cash.profit(100.001)), '$0.01', 'small gains stay visible');
+  assert.equal(sim.call('audit').moneyUnit, 'Multiply stored money values by 10 for displayed practice USD.');
 });
 
 test('late polls cannot overwrite a newer host state, even when request order differs', () => {

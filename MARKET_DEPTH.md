@@ -13,17 +13,17 @@ These examples demonstrate variation, not an average. Cumulative trading volume 
 
 ## Classroom parameters
 
-The internal full-share payout is 10, displayed as $10,000. A student's initial 100 internal units display as $100,000. New rounds increase LMSR depth from 18 to 540. Starting balances and settlement payouts for students are unchanged.
+The internal full-share payout is 10, displayed as $100. A student's initial 100 internal units display as $1,000. On 10 November 2026, all practice-dollar amounts were divided by 100, while internal balances, share counts, liquidity, order timing and pricing rules stayed unchanged. This keeps student and NPC purchasing power, price impact, returns and saved games proportional. Historical Bitcoin prices and the real-market snapshots above are not rescaled. LMSR depth remains 540.
 
 For an immediate purchase with internal budget C and starting probability p, the terminal marginal probability is:
 
 `p_after = 1 - (1 - p) * exp(-C / (10 * 540))`
 
-At a 10% opening chance, $25,000 moves it to about 10.42%; $100,000 moves it to about 11.65%; $250,000 moves it to about 14.07%, before any other trades. All positive purchases still have an effect. Twenty full student wallets together can move a 50% book to about 65.5%.
+At a 10% opening chance, $250 moves it to about 10.42%; $1,000 moves it to about 11.65%; $2,500 moves it to about 14.07%, before any other trades. All positive purchases still have an effect. Twenty full student wallets together can move a 50% book to about 65.5%.
 
-The maximum upward impact of a $100,000 buy is less than 1.84 percentage points, even near an extreme. Larger accumulated balances can cause greater impact; there is no artificial guarantee that any size order moves prices by less than two points. Selling prices depend on the size of the position and the current book. Immediate buy-and-sell round trips without intervening orders neither create nor destroy money in this fee-free model. Market moves and final settlement can still produce losses.
+The maximum upward impact of a $1,000 buy is less than 1.84 percentage points, even near an extreme. Larger accumulated balances can cause greater impact; there is no artificial guarantee that any size order moves prices by less than two points. Selling prices depend on the size of the position and the current book. Immediate buy-and-sell round trips without intervening orders neither create nor destroy money in this fee-free model. Market moves and final settlement can still produce losses.
 
-The initial depth update scaled background NPC capital, opening quantities and order quantities by the same factor of 30, giving each of 20 NPCs $3 million in simulated opening capital. In the depth-only release (`4b3c8fe`), the NPC event clock, sentiment process and historical Bitcoin inputs were unchanged. Across 30 seeds and 300 one-second samples per seed, that release's no-human-trading marginal probabilities and total NPC order counts matched the former engine. NPCs are larger background participants, not clones of student wallets.
+The initial depth update scaled background NPC capital, opening quantities and order quantities by the same factor of 30, giving each of 20 NPCs $30,000 in simulated opening capital (expressed in the current practice-dollar denomination). In the depth-only release (`4b3c8fe`), the NPC event clock, sentiment process and historical Bitcoin inputs were unchanged. Across 30 seeds and 300 one-second samples per seed, that release's no-human-trading marginal probabilities and total NPC order counts matched the former engine. NPCs are larger background participants, not clones of student wallets.
 
 Saved rounds keep their existing depth and NPC sizes so upgrading cannot reprice existing positions or change completed results. A host refresh followed by a new round activates the deeper market. This is a deliberately simplified, liquid classroom market, not a full limit-order-book simulation.
 
@@ -38,10 +38,10 @@ Regression checks replay 30 seeds: low-price changes occur in both directions, t
 
 ## More participants, smaller orders
 
-Behavior version 3 splits the same $60 million of opening NPC capital across **120 accounts with $500,000 each**. Each has its own cash and Up/Down holdings. Each buy or sale is at most $100,000; there is no unlimited budget or replenishment. The pricing depth stays at 540, so the student price-impact calibration above still applies. These accounts represent a constructed background crowd, not observed real traders.
+Behavior version 3 splits the same $600,000 of opening NPC capital across **120 accounts with $5,000 each**. Each has its own cash and Up/Down holdings. Each buy or sale is at most $1,000; there is no unlimited budget or replenishment. The pricing depth stays at 540, so the student price-impact calibration above still applies. These accounts represent a constructed background crowd, not observed real traders.
 
 The basic order lot falls from 30 to 5 shares. Event intervals are divided by 10: roughly 10–14 quiet-period trades per second, briefly about 34–59 scheduled events per second after sharp revealed price moves. Unaffordable orders are skipped. The crowd sentiment decay is adjusted to `0.96^(1/10)` and noise steps divided by `sqrt(10)`, avoiding a tenfold acceleration of the shared sentiment process merely because more traders submit orders. Small changes are still shown to one decimal place. These changes preserve visible runs and reversals, not an identical historical prediction-price path or a measured volatility target.
 
 Tests simulate complete rounds with independently funded NPCs, check every buy and sale against the size limit, reconcile inventories, and ensure every account participates. Thirty-seed replay checks cover the crash, two-way low-price movement and later recovery. Additional checks compare sparse versus frequent polling, host reloads, unseen future candles, the Python/browser implementations, and saved rounds from all previous pricing versions.
 
-The live leaderboard is a separate view of the host's human-player totals. Viewing never registers a player. Rankings use whole-dollar profit relative to each student's $100,000 start, include inactive players, and give equal profits equal places. Live values are liquidation estimates; settlement uses the winning outcome's payout. NPC money is not included in class rankings.
+The live leaderboard is a separate view of the host's human-player totals. Viewing never registers a player. Rankings use cent-rounded profit relative to each student's $1,000 start, include inactive players, and give equal profits equal places. Live values are liquidation estimates; settlement uses the winning outcome's payout. NPC money is not included in class rankings.

@@ -9,7 +9,7 @@ const label = (id, value) => {
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const num = new Intl.NumberFormat("en-US");
 const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const practice = value => dollars.format(value * 1000);
+const practice = BitcoinPracticeMoney.format;
 const compactDollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const timer = (t) =>
   String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(Math.floor(t % 60)).padStart(2, "0");
@@ -109,7 +109,7 @@ function makeFillRow(fill, me) {
   who.title = who.textContent;
   const amount = document.createElement("b");
   amount.className = "fill-amount";
-  amount.textContent = fill.actor === "npc" && fill.total >= 1000 ? compactDollars.format(fill.total * 1000) : practice(fill.total);
+  amount.textContent = fill.actor === "npc" && fill.total >= 1000 ? compactDollars.format(BitcoinPracticeMoney.toDollars(fill.total)) : practice(fill.total);
   amount.title = practice(fill.total);
   const detail = document.createElement("span");
   detail.className = "fill-what";
@@ -354,7 +354,7 @@ function drawStandings(s) {
     name.textContent = player.name;
     const amount = document.createElement("b");
     amount.className = "final-profit" + (player.profit < 0 ? " loss" : player.profit > 0 ? " gain" : "");
-    amount.textContent = (player.profit > 0 ? "+" : player.profit < 0 ? "−" : "") + dollars.format(Math.abs(player.profit));
+    amount.textContent = (player.profit > 0 ? "+" : player.profit < 0 ? "−" : "") + BitcoinPracticeMoney.formatDollars(Math.abs(player.profit));
     row.append(rank, name, amount);
     return row;
   });
@@ -381,7 +381,7 @@ function paint(s) {
       ? "Watch blocks from the same four historical hours, then consider who lives alongside mining infrastructure."
       : done
         ? "The historical window is open. Compare your choices before viewing the network replay."
-        : "Watch four hours of real Bitcoin prices in five minutes. Make your prediction with $100,000 in practice cash.",
+        : "Watch four hours of real Bitcoin prices in five minutes. Make your prediction with $1,000 in practice cash.",
   );
   label(
     "era",
@@ -456,9 +456,9 @@ function paint(s) {
   show("positionReturn", Boolean(s.me));
   if (s.me) {
     const value = done ? s.me.points : s.bulk ? s.me.cash + s.bulk.cashOut.total : s.me.points;
-    const gain = Math.round(value * 1000) - 100000;
+    const gain = BitcoinPracticeMoney.profit(value);
     label("wallet", practice(value));
-    label("gain", (gain < 0 ? "−" : gain > 0 ? "+" : "") + dollars.format(Math.abs(gain)));
+    label("gain", (gain < 0 ? "−" : gain > 0 ? "+" : "") + BitcoinPracticeMoney.formatDollars(Math.abs(gain)));
     $("gain").classList.toggle("loss", gain < 0);
     label("availableCash", practice(s.me.cash));
     label("worthLabel", done ? "Final total" : "Total value · cash + bets");
@@ -472,7 +472,7 @@ function paint(s) {
   show("discussion", s.phase === "discussion");
   if (done) {
     $("priceSource").href = s.reveal.source;
-    label("winner", "“" + sideName(s.reveal.winner) + "” wins · $10,000 per share");
+    label("winner", "“" + sideName(s.reveal.winner) + "” wins · $100 per share");
     const begin = s.reveal.startUtc,
       end = s.reveal.endUtc;
     label(
@@ -709,10 +709,10 @@ function modal(title, paragraphs, code) {
 }
 $("guide").onclick = () =>
   modal("How to play", [
-    "Enter your name or nickname to get $100,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
+    "Enter your name or nickname to get $1,000 in practice cash. Five classroom minutes replay four hours of real Bitcoin prices. The gold line shows Bitcoin’s price in US dollars. The dashed line marks where it started.",
     "The 120 trading AI agents are simulated traders with programmed strategies. They react to the price history shown so far and trade alongside the people in your room.",
     "Pick Up or Down. Market chance follows the room’s share prices. Player counts show how many classmates own that outcome. If you hold both, you count on both sides.",
-    "Choose a percentage and tap Buy Up, Buy Down, Sell Up, or Sell Down. Buying uses that percentage of your spendable cash. Selling closes that percentage of your holdings on the chosen side. You can hold both sides. Your total includes unspent cash plus the money you could get by selling your bets. Profit or loss compares that total with your starting $100,000. At the finish, winning bets pay out and losing bets become worth $0. A tie goes to Down.",
+    "Choose a percentage and tap Buy Up, Buy Down, Sell Up, or Sell Down. Buying uses that percentage of your spendable cash. Selling closes that percentage of your holdings on the chosen side. You can hold both sides. Your total includes unspent cash plus the money you could get by selling your bets. Profit or loss compares that total with your starting $1,000. At the finish, winning bets pay out and losing bets become worth $0. A tie goes to Down.",
   ]);
 $("invite").onclick = () =>
   modal(

@@ -2,7 +2,7 @@
 (() => {
   "use strict";
   const PAYOUT = 10;
-  // A $100,000 starting wallet moves the odds by at most about 1.84 pp.
+  // A $1,000 starting wallet moves the odds by at most about 1.84 pp.
   // Spread the same background capital across smaller, faster-trading seats.
   const MARKET_SCALE = 30;
   const LIQUIDITY = 18 * MARKET_SCALE;
@@ -479,7 +479,7 @@
           name: this.players.get(JSON.parse(reference)[0])?.name, side: order[0], action: order[1], amountOrQuantity: order[2],
         })),
         ticketHistory: this.market.history.slice(),
-        moneyUnit: "Multiply stored money values by 1000 for displayed practice USD.",
+        moneyUnit: "Multiply stored money values by 10 for displayed practice USD.",
       };
     }
 

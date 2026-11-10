@@ -371,7 +371,7 @@ class Room:
                 "startPrice": self.prices[0]["price"], "lastPrice": self.prices[math.floor(elapsed * 240 / self.duration)]["price"],
                 "players": [{**p, "total": money(p["cash"] + (p[self.winner] * PAYOUT if self.winner else self.cash_out_value(p)))} for p in self.players.values()],
                 "trades": [f for _, f in self.trade_log], "recentTrades": list(self.trade_feed),
-                "moneyUnit": "Multiply stored money values by 1000 for displayed practice USD."}
+                "moneyUnit": "Multiply stored money values by 10 for displayed practice USD."}
 
     def host_action(self, action):
         self.update()

@@ -1,7 +1,6 @@
 /* One source of truth for order feedback and snapshot ordering. */
 (() => {
-  const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-  const cash = amount => dollars.format(amount * 1000);
+  const cash = BitcoinPracticeMoney.format;
   const sideName = side => side === "up" ? "Up" : side === "down" ? "Down" : "both bets";
   function receipt(fill) {
     const buying = fill.action === "buy" || fill.action === "buyCash";
