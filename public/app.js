@@ -375,7 +375,6 @@ function paint(s) {
   show("joinForm", !s.me && !done);
   show("walletPanel", !!s.me);
   show("cashDetail", !done);
-  document.body.classList.toggle("exchange", !done);
   show("prediction", !done);
   if (!done) updateOutcomeRows(s);
   show("tradePanel", !!s.me && !done);

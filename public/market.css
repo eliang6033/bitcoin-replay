@@ -21,7 +21,7 @@
 .exchange .hero p { font-size: 15px; }
 .exchange .era { color: #e9bd78; }
 .exchange .signal { background: currentColor; }
-.exchange .hostbar, .exchange .standings, .exchange .ticket, .exchange .chartcard {
+.exchange .hostbar, .exchange .panel, .exchange .ticket, .exchange .chartcard {
   background: #161b22;
   border: 1px solid var(--line);
   box-shadow: none;
@@ -30,7 +30,7 @@
 .exchange button { background: #202834; }
 .exchange .navlink { background: transparent; }
 .exchange .ink, .exchange .primary { color: #0c1824; background: #9dcaff; border-color: #9dcaff; }
-.exchange input, .exchange select { color: var(--ink); background: #0e141b; border-color: #495564; }
+.exchange input, .exchange select, .exchange #dialogText input { color: var(--ink); background: #0e141b; border-color: #495564; }
 .exchange .chartcard { background: linear-gradient(150deg,#1c2531,#131920); }
 .exchange .charthead small, .exchange .timer span { color: #b9c1cc; }
 .exchange .chartfoot { border-color: #303945; color: #adb6c1; }
@@ -47,6 +47,18 @@
 .exchange .status { background: #422f1d; color: #ffe2ab; }
 .exchange dialog { background: #171e27; color: var(--ink); }
 .exchange dialog code { background: #263244; }
+.exchange .panel p { color: var(--soft); }
+.exchange .kicker { color: var(--purple); }
+.exchange .prompts div { border-color: #4b5e78; }
+.exchange .invite-actions a { background: #263244; color: #d7e8ff; }
+.exchange #finalRanking [data-rank="1"] { background: #29251b; }
+.exchange #finalRanking [data-rank="1"] .rank-trophy { color: #f1c86c; }
+.exchange #finalRanking [data-rank="2"] { background: #212731; }
+.exchange #finalRanking [data-rank="2"] .rank-trophy { color: #bdc9d6; }
+.exchange #finalRanking [data-rank="3"] { background: #2b221e; }
+.exchange #finalRanking [data-rank="3"] .rank-trophy { color: #db9a74; }
+.exchange .final-profit.gain { color: var(--green); }
+.exchange .final-profit.loss { color: var(--red); }
 
 .market-board { margin: 0 0 17px; border: 1px solid #2d3744; border-radius: 14px; overflow: hidden; background: #151a21; }
 .board-head, .market-board .market-row {
